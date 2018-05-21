@@ -15,7 +15,7 @@ All counters are grouped by Server, Metric Set and Metric. Data values averaged 
 ## Setup
 
 1. SQL Server database using deployment scripts provided in the DB folder.
-2. Setup performance monitor data collection on each server you want to monitor. You can set whatever counters you think are important for each server. Detailed information on how to set up monitoring is in the *Perfmon-setup-Win2008R2-and-above-20171106.pdf*
+2. Setup performance monitor data collection on each server you want to monitor. You can set whatever counters you think are important for each server. Detailed information on how to set up monitoring is in the *[Perfmon-setup-Win2008R2-and-above-20171106.pdf](https://github.com/albugrimenko/PerfMon/blob/master/PowerShell/Perfmon-setup-Win2008R2-and-above-20171106.pdf)*
 3. Make sure that data collected in the local folder and can be accessed remotely from the central server by the user you are planning to run data collection on daily basis.
 4. List all servers and corresponding shared folders in the *PerfmonToSQL_AB.servers* file. Format is simple:
 Server name|Remote location
@@ -34,7 +34,7 @@ Notes:
 
 PerfmonE is an "enterprise" version of the database. It uses data partitioning to optimize performance. Table partitioning required enterprise license for MS SQL Server 2016 and earlier, but is available in all versions, including SQL Express, since SQL 2016 SP1.
 
-Data partitioning defined by date, i.e. the most granular possible partition is 1 day/partition - data is partitioned by "DayOfYear". Current script defines partition size to 30 days and need to be edited if other partition size is desired (see file 03_Tables.sql).
+Data partitioning defined by date, i.e. the most granular possible partition is 1 day/partition - data is partitioned by "DayOfYear". Current script defines partition size to 30 days and need to be edited if other partition size is desired (see deployment script file [03_Tables.sql](https://github.com/albugrimenko/PerfMon/blob/master/DB/MsSQL_PerfmonE/DeploymentScripts/03_Tables.sql)).
 
 There are two database roles defined:
 *	*Importer* – allowed to call stored procedure to import new data

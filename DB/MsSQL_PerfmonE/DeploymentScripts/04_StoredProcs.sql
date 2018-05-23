@@ -1072,9 +1072,26 @@ declare @GrHours tinyint = 0,
 
 -- default date stats range is 4 weeks, starting 1 week prior to the current week
 --	just to make sure we did not catch any recent days irregularity
-if @StartDate is null or @EndDate is null
+if @StartDate is null or @EndDate is null begin
 	select @StartDate = dateadd(week,-1-4,getdate()),
 		   @EndDate = dateadd(week,-1,getdate())
+	-- extra check for data availability to avoid empty stats
+	declare @sd date, @ed date
+	; with r as (
+		select 
+			MinDateID = min(v.DateID),
+			MaxDateID = max(v.DateID)
+		from MetricValues v
+	)
+	select 
+		@sd = dmin.TheDate,
+		@ed = dmax.TheDate
+	from r
+		join Dates dmin on r.MinDateID = dmin.ID
+		join Dates dmax on r.MaxDateID = dmax.ID
+	if @EndDate < @sd
+		select @StartDate = @sd, @EndDate=@ed
+end
 
 truncate table MetricValueStats
 
@@ -1131,6 +1148,7 @@ while @GrHours <= 12 begin
 	else
 		set @GrHours += 4
 end
+
 print '--- DONE ---'
 
 RETURN 1

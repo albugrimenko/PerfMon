@@ -1299,8 +1299,8 @@ BEGIN TRY
 				join @Metrics mm on p.CounterInstance = mm.CounterInstance
 				join MetricSets mc on mm.MetricSet = mc.Name
 				join Metrics m on mm.Metric = m.Name
-				join Dates d on p.D = d.TheDate
-				join Times t on p.TGroup = t.TheTime
+				join dbo.Dates d on p.D = d.TheDate
+				join dbo.Times t on p.TGroup = t.TheTime
 			group by s.ID, mc.ID, m.ID, d.ID, d.DayInYear, t.ID
 		) as s on t.DayInYear = s.DayInYear
 			and t.ServerID = s.ServerID 

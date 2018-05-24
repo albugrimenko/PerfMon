@@ -69,6 +69,12 @@ foreach($line in $config) {
     $ServerPathName = $line.Split("|")[1]
     Write-Host "-- Copying data (.blg files) for" $ServerName "from" $ServerPathName
     $Files = get-childitem $ServerPathName -recurse 
+
+    $CabList = $Files | where {$_.extension -eq ".cab"} 
+    ForEach ($File in $CabList) {
+       expand -F:* $File.FullName $DestDir
+    }
+
     $BLGList = $Files | where {$_.extension -eq ".blg"} | where {$_.LastWriteTime.Date -ge (Get-Date).Date.AddDays(-$DaysToProcess)}
     ForEach ($File in $BLGList) {
         Copy-Item -Path $File.FullName -Destination $DestDir

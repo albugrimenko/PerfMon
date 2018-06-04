@@ -510,7 +510,7 @@ if (lower(@ObjectName) = 'metricsets') begin
 	end
 end
 
-if isnull(@Result, 0) < 1
+if isnull(@Result, 0) < 1 and @IsAutoAdd = 1
 	raiserror('Cannot find or create an entry in the [%s] with value [%s].', 16, 1, @ObjectName, @ObjectValue)
 
 RETURN isnull(@Result, 0)
@@ -528,7 +528,7 @@ CREATE PROCEDURE [dbo].[GetMetricList]
 --
 -- Gets unique Metric list.
 --	If @ServerID/Name is specified, this list is unique for a specified server.
---  If @MetricSetID/Name is specified, this list is (also) unique for a specified metric set.
+--  If @MetricSetID/Name is specified, this list is unique for a specified metric set.
 --
 
 /*
@@ -549,12 +549,24 @@ if @ServerID is not null begin
 	select 
 		ms.ID,
 		ms.Name
-	from Metrics ms
+	from Metrics ms --(nolock)
 		join (
 			select MetricID 
-			from Server_MetricSets 
+			from Server_MetricSets --(nolock)
 			where ServerID = @ServerID 
 				and (@MetricSetID is null or MetricSetID = @MetricSetID)
+			group by MetricID
+		) sms on sms.MetricID = ms.ID
+	order by Name
+end else if @MetricSetID is not null begin
+	select 
+		ms.ID,
+		ms.Name
+	from Metrics ms --(nolock)
+		join (
+			select distinct MetricID 
+			from Server_MetricSets --(nolock)
+			where MetricSetID = @MetricSetID
 			group by MetricID
 		) sms on sms.MetricID = ms.ID
 	order by Name

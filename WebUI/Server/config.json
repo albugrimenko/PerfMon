@@ -1,0 +1,4 @@
+{
+  "dir_log": "{ROOT_DIR}/log/",
+  "sql_constring": "Driver={SQL Server};Server=DEVDB2;Database=PerfmonE;uid=perfmon;pwd=perfmon;"
+}

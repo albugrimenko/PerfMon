@@ -4,6 +4,8 @@ print '--- Loading static data ---'
 GO
 exec [tools_SetUpDimentions]
 GO
+exec [tools_SetUpLookups]
+GO
 print '--- Loading static data: data loaded. ---'
 GO
 

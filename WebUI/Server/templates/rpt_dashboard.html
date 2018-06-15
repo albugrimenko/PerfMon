@@ -1,0 +1,27 @@
+<p class="text-info">
+    For each server/date, categories with issues are shown with a corresponding time frame (from-to), when it happened.
+    Number in a brakets shows the number of time frames with registered issues.
+</p>
+<div class="row">
+{% for item in items %}
+    <div class="col col-md-3">
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">{{ escape(item["server_name"]) }}</h5>
+                <h6 class="card-subtitle mb-2 text-muted">{{ escape(item["date"]) }}</h6>
+                <div class="card-text">
+                    <ul>
+                        {% for iss in item["issues"] %}
+                            <li>{{ escape(iss["resource"]) }}: {{ escape(iss["times"]) }}</li>
+                        {% end %}
+                    </ul>
+                </div>
+                <a href="#" class="card-link">see details</a>
+            </div>
+        </div>
+    </div>
+    {% if int(item["n"]) % 4 == 0 %}
+        </div><div class="row">
+    {% end %}
+{% end %}
+</div>

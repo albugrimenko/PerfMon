@@ -58,18 +58,18 @@
 					</div>
 				</div>
 				<div class="col col-md-2" style="vertical-align:bottom;">
-					<a id="btnWhySlow" href="" class="btn btn-warning w m-b m-t-10" title="Shows 'out of ordinary' report for the selected Server">Why Slow?</a>
-					<a id="btnGetChart" href="" class="btn btn-info w m-b" title="Plots chart for the selected Server and Metric">Get Chart</a>
+					<a id="btnDashboard" href="javascript:;" onclick="getReport('dashboard', null, 'resDetail');" class="btn btn-warning w m-b-10" title="Shows 'out of ordinary' events for all servers for the last 2 days">Dashboard</a>
+					<a id="btnWhySlow" href="" class="btn btn-warning w m-b-10" title="Shows 'out of ordinary' report for the selected Server">Why Slow?</a>
+					<a id="btnGetChart" href="" class="btn btn-info w m-b-10" title="Plots chart for the selected Server and Metric">Get Chart</a>
 				</div>
 			</div>
 		</div>
 
-		<div id="res" class="p-a">
-			<div id="res_Hdr" class="hr-divider m-t-md m-b">
-				<h3 class="hr-divider-content hr-divider-heading">Results</h3>
+		<div id="res" class="m-t m-b">
+			<div id="res_Hdr" class="hr-divider">
+				<h3 id="resHeader" class="hr-divider-content hr-divider-heading">Results</h3>
 			</div>
-			<div id="res_Row" class="row">
-				<p>...results...</p>
+			<div id="resDetail" class="m-t">
 			</div>
 		</div>
 
@@ -99,6 +99,7 @@
 			ko.applyBindings(viewModel);
 		});
 	</script>
+	<script type="text/javascript" src="./js/perfmon_rpt.js"></script>
 	<script type="text/javascript" src="./js/d3.min.js"></script>
 </body>
 </html>

@@ -1,3 +1,4 @@
+import os
 import sys
 import logging
 from tornado import ioloop, web
@@ -5,6 +6,7 @@ from tornado import ioloop, web
 import tools.config_helpers as cfgh
 import controllers.main as cntrl_main
 import controllers.api_lookup as api_lkp
+import controllers.api_report as api_rpt
 
 
 DEBUG = True
@@ -14,6 +16,8 @@ ROUTES = [
     (r"/lookup/server", api_lkp.LookupServerApiHandler),
     (r"/lookup/metricset/(?P<server_name_id>\w+)?", api_lkp.LookupMetricSetApiHandler),
     (r"/lookup/metric/(?P<server_name_id>\w+)?/(?P<set_name_id>\w+)?", api_lkp.LookupMetricApiHandler),
+    (r"/report/dashboard", api_rpt.ReportDahsboardApiHandler),
+    (r"/report/html/dashboard", api_rpt.ReportHTMLDahsboardApiHandler),
 ]
 
 
@@ -24,6 +28,7 @@ def run():
         app = web.Application(
             ROUTES,
             debug=DEBUG,
+            template_path=os.path.join(os.path.dirname(__file__), "templates"),
         )
         app.listen(PORT)
         logging.info("-- Server (re)started. Listening on port {0} --".format(PORT))

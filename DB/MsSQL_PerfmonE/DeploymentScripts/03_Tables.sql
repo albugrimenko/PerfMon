@@ -183,8 +183,8 @@ CREATE TABLE [dbo].[TimesGrouped](
 	[GrHours] [tinyint] NOT NULL,
 	[TimeID_min] [smallint] NOT NULL,
 	[TimeID_max] [smallint] NOT NULL,
-	[Time_min] [time](7) NOT NULL,
-	[Time_max] [time](7) NOT NULL,
+	[Time_min] [time](0) NOT NULL,
+	[Time_max] [time](0) NOT NULL,
 	[GrNumber] [tinyint] NOT NULL,
  CONSTRAINT [PK_TimesGrouped] PRIMARY KEY CLUSTERED 
 (

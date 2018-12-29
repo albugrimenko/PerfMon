@@ -1,7 +1,3 @@
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
 CREATE PROCEDURE [dbo].[GetMetricValuesDet]
 	@StartDate date, @EndDate date,
 
@@ -22,7 +18,7 @@ exec GetMetricValuesDet @StartDate = '5/8/2018', @EndDate = '5/9/2018',
 
 AS
 set nocount on;
-set transaction isolation level snapshot;
+--set transaction isolation level snapshot;
 
 ---- params 
 if @EndDate is NULL
@@ -31,17 +27,20 @@ if @StartDate is NULL
 	set @StartDate = dateadd(week, -1, @EndDate)
 
 if @GrHours is null begin
-	if dateadd(day, 14, @StartDate) > @EndDate	-- 2 weeks and more - every 12 hrs ~ 14 * (24/12) = 28 points
+	if dateadd(day, 14, @StartDate) <= @EndDate	-- 2 weeks and more - every 12 hrs ~ 14 * (24/12) = 28 points
 		set @GrHours = 12
-	else if dateadd(day, 7, @StartDate) > @EndDate	-- 1 week - every 6 hrs ~ 7 * (24/6) = 28 points
+	else if dateadd(day, 7, @StartDate) <= @EndDate	-- 1 week - every 6 hrs ~ 7 * (24/6) = 28 points
 		set @GrHours = 6
-	else if dateadd(day, 5, @StartDate) > @EndDate	-- 5 days - every 4 hrs ~ 5 * (24/4) = 30 points
+	else if dateadd(day, 5, @StartDate) <= @EndDate	-- 5 days - every 4 hrs ~ 5 * (24/4) = 30 points
 		set @GrHours = 4
-	else if dateadd(day, 3, @StartDate) > @EndDate	-- 3 days - every 2 hrs ~ 3 * (24/12) = 36 points
-		set @GrHours = 4
+	else if dateadd(day, 3, @StartDate) <= @EndDate	-- 3 days - every 2 hrs ~ 3 * (24/12) = 36 points
+		set @GrHours = 2
 	else
 		set @GrHours = 1	-- every 1 hour
 end
+
+--TEST
+--print @GrHours
 
 if @ServerID is null and len(isnull(@ServerName,'')) > 0
 	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0

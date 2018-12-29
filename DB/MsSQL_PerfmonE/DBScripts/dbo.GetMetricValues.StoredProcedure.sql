@@ -1,7 +1,3 @@
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
 CREATE PROCEDURE [dbo].[GetMetricValues]
 	@StartDate date, @EndDate date,
 
@@ -11,15 +7,15 @@ CREATE PROCEDURE [dbo].[GetMetricValues]
 
 /* Gets all recorded values for a particular server/metric for specified date range
 
-exec GetMetricValues @StartDate = '5/7/2018', @EndDate = '5/10/2018',
-	@ServerID=1, @MetricSetName='Processor(_Total)', 
+exec GetMetricValues @StartDate = '12/16/2018', @EndDate = '12/16/2018',
+	@ServerID=4, @MetricSetName='Processor(_Total)', 
 	@MetricName='% Processor Time'
 */
 --with recompile
 
 AS
 set nocount on;
-set transaction isolation level snapshot;
+--set transaction isolation level snapshot;
 
 ---- params 
 if @EndDate is NULL
@@ -52,17 +48,17 @@ end
 ---- get data
 ; with fdates as (
 	select ID, TheDate, DayInYear
-	from Dates
+	from Dates (nolock)
 	where TheDate between @StartDate and @EndDate
 )
 select --top(2147483647)
 	[Date] = d.TheDate,
 	[Time] = t.TheTime,
 	Value = mv.Value
-from MetricValues mv
+from MetricValues mv (nolock)
 	join fdates d on mv.DateID = d.ID 
 		and mv.DayInYear = d.DayInYear	-- required for proper partitions usage
-	join Times t on mv.TimeID = t.ID
+	join Times t (nolock) on mv.TimeID = t.ID
 where --m.DayInYear in (select DayInYear from fdates group by DayInYear)
 	mv.ServerID = @ServerID
 	and mv.MetricSetID = @MetricSetID

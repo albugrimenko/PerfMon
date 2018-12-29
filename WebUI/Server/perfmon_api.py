@@ -7,6 +7,7 @@ import tools.config_helpers as cfgh
 import controllers.main as cntrl_main
 import controllers.api_lookup as api_lkp
 import controllers.api_report as api_rpt
+import controllers.api_metricvalues as api_mv
 
 
 DEBUG = True
@@ -14,10 +15,14 @@ PORT = 8000
 ROUTES = [
     (r"/", cntrl_main.MainHandler),
     (r"/lookup/server", api_lkp.LookupServerApiHandler),
-    (r"/lookup/metricset/(?P<server_name_id>\w+)?", api_lkp.LookupMetricSetApiHandler),
-    (r"/lookup/metric/(?P<server_name_id>\w+)?/(?P<set_name_id>\w+)?", api_lkp.LookupMetricApiHandler),
+    (r"/lookup/metricset/(?P<server_name_id>[\w-]+)?", api_lkp.LookupMetricSetApiHandler),
+    (r"/lookup/metric/(?P<server_name_id>[\w-]+)?/(?P<set_name_id>[()\w-]+)?", api_lkp.LookupMetricApiHandler),
     (r"/report/dashboard", api_rpt.ReportDahsboardApiHandler),
     (r"/report/html/dashboard", api_rpt.ReportHTMLDahsboardApiHandler),
+    (r"/metricvalues/raw/(?P<server_name_id>[\w-]+)?/(?P<set_name_id>[()\w-]+)?/(?P<metric_name_id>[()\w-]+)?",
+        api_mv.MetricValuesRawApiHandler),
+    (r"/metricvalues/det/(?P<server_name_id>[\w-]+)?/(?P<set_name_id>[()\w-]+)?/(?P<metric_name_id>[()\w-]+)?",
+        api_mv.MetricValuesDetApiHandler),
 ]
 
 

@@ -9,16 +9,19 @@ class Reports(object):
     sql_constring = ""
 
     @staticmethod
+    def is_initialized():
+        return Reports.sql_constring != ""
+
+    @staticmethod
     def init():
         cnf = ConfigJSON()
-        if Reports.sql_constring == "":
-            Reports.sql_constring = cnf.get("sql_constring")
+        Reports.sql_constring = cnf.get("sql_constring")
         return
 
     @staticmethod
     def get_dashboard():
         import models.report_dashboard_sql as dash
-        if Reports.sql_constring == "":
+        if not Reports.is_initialized():
             Reports.init()
         rpt = dash.RptDashboard()
         rpt.load_sql(Reports.sql_constring)
@@ -36,7 +39,7 @@ class Reports(object):
                 if "server_id" in card:
                     res.append(card)
                 n += 1
-                card = { "n": n }
+                card = dict({"n": n})
                 card["server_id"] = item.server_id
                 card["server_name"] = item.server_name
                 card["date"] = item.date

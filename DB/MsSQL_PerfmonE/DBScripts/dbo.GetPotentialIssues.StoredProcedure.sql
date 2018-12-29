@@ -1,27 +1,23 @@
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
 CREATE PROCEDURE [dbo].[GetPotentialIssues]
 	@ServerID int = null, @ServerName nvarchar(200) = null, 
 	@MetricSetID int = null, @MetricSetName nvarchar(200) = null,
 	@MetricID int = null, @MetricName nvarchar(200) = null,
 	@SigmaNum money = 3
 
-/* Gets most recent (last 2 days) recorded values for a particular server/metric for specified date range
+/* Gets most recent (last 1 day) recorded values for a particular server/metric for specified date range
 	where average value is differ from recorded average for more than @SigmaNum standard deviations.
 
-exec GetPotentialIssues @ServerID=1, @SigmaNum=2
+exec GetPotentialIssues @ServerID=3, @SigmaNum=3
 */
 --with recompile
 
 AS
 set nocount on;
-set transaction isolation level snapshot;
+--set transaction isolation level snapshot;
 
 ---- params 
 declare @GrHours tinyint = 1,
-		@StartDate date = dateadd(day, -2, getdate()),
+		@StartDate date = dateadd(day, -1, getdate()),
 		@EndDate date = getdate()
 
 if @ServerID is null and len(isnull(@ServerName,'')) > 0
@@ -64,6 +60,7 @@ if @SigmaNum < 0
 )
 select 
 	TheDate,
+	ServerID = r.ServerID,
 	[Server] = s.Name,
 	MetricSet = ms.Name,
 	Metric = m.Name,

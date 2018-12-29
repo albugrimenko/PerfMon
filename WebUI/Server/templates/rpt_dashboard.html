@@ -10,13 +10,13 @@
                 <h5 class="card-title">{{ escape(item["server_name"]) }}</h5>
                 <h6 class="card-subtitle mb-2 text-muted">{{ escape(item["date"]) }}</h6>
                 <div class="card-text">
-                    <ul>
+                    <ul class="muted">
                         {% for iss in item["issues"] %}
                             <li>{{ escape(iss["resource"]) }}: {{ escape(iss["times"]) }}</li>
                         {% end %}
                     </ul>
                 </div>
-                <a href="#" class="card-link">see details</a>
+                <a href="#" class="card-link muted">see details</a>
             </div>
         </div>
     </div>

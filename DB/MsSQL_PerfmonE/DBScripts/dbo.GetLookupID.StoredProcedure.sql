@@ -14,7 +14,7 @@ select @r
 
 AS
 set nocount on;
-set transaction isolation level snapshot;
+--set transaction isolation level snapshot;
 
 declare @Result int
 set @ObjectValue = ltrim(rtrim(@ObjectValue))

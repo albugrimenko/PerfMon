@@ -20,11 +20,17 @@ function getReport(rptName, params, dest) {
 				viewModel.status("Loading " + rptName + ": OK. (exec time: " + getExecTime(start) + " s)");
 		},
 		error: function(xhr) {
-			var err = JSON.parse(xhr.responseText);
-			alert("ERROR: " + err.Message);
-			if (viewModel != undefined) 
+			if (xhr && xhr.responseText) {
+				var err = JSON.parse(xhr.responseText);
+				alert("ERROR: " + err.Message);
+			}
+			else {
+				alert("ERROR: Unable to connect.");
+			}
+			if (viewModel != undefined) {
 				viewModel.status("Loading " + rptName + ": ERROR. (exec time: " + getExecTime(start) + " s)");
-			dest.html('');
+			}
+			$('#' + dest).html('');
 		}
 	})
 	return false;

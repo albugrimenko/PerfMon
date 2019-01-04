@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Performance Monitor: metric chart</title>
+	
+	<link rel="stylesheet" href="./css/bootstrap.min.css" media="screen">
+	<link rel="stylesheet" href="./css/statcard.css" media="screen">
+	<script type="text/javascript" src="./js/jquery.min.js"></script>
+	<script type="text/javascript" src="./js/bootstrap.min.js"></script>
+	<script src="./js/d3.v5.min.js"></script>
+	<script src="./js/perfmon_chart.js"></script>
+</head>
+<body>
+	<div class="container-fluid">
+		<header>
+			<div class="dashhead">
+				<div class="dashhead-titles">
+					<h1 class="dashhead-title"></h1>
+					<h3 class="dashhead-subtitle">Performance Monitor Charts Prototype</h3>
+				</div>
+			</div>
+		</header>
+
+		<div id="res" class="m-t m-b">
+			<div id="res_Hdr" class="hr-divider">
+				<h3 id="resHeader" class="hr-divider-content hr-divider-heading">Results</h3>
+			</div>
+			<div id="resDetail">
+			</div>
+		</div>
+
+		<div id="resStatus" class="muted">
+			<div class="hr-divider m-t-md m-b">
+				<h6 class="hr-divider-content hr-divider-heading">Execution log</h6>
+			</div>
+			<textarea class="form-control muted" disabled rows="5" id="txtStatus"></textarea>
+		</div>
+		
+		<footer>
+			<hr />
+			<p class="muted">(c) 2018</p>
+		</footer>
+	</div>
+	
+	<script lang="javascript">
+		get_data_mv_static(dest_id="resDetail", is_drawchart=true, chart_title='Metric Values');
+	</script>
+</body>
+</html>
+

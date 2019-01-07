@@ -29,6 +29,19 @@
 			</div>
 			<div id="resDetail">
 			</div>
+			<div class="text-small text-info">
+				<h5>Legend:</h5>
+				<ul>
+					<li><b>Box</b> - represents aggregation time period with min and max values as its lower and higher bars.</li>
+					<li><b>Solid Line</b> - average values for the period.</li>
+					<li><b>Dashed Line</b> - historical min/max values for the same period.</li>
+				</ul>
+				<p>
+					* - click on a chart to draw horizontal line for easy comparison of values.
+					<br />
+					* - hover over box to show period details.
+				</p>
+		</div>
 		</div>
 
 		<div id="resStatus" class="muted">
@@ -45,7 +58,11 @@
 	</div>
 	
 	<script lang="javascript">
-		get_data_mv_static(dest_id="resDetail", is_drawchart=true, chart_title='Metric Values');
+		// just a test with static data
+		// get_data_mv(server_id=0, set_id=0, metric_id=0, start_date='1/1/2018', end_date='1/1/2018', 
+		// 	dest_id="resDetail", chart_title='Metric Values');
+		get_data_mvdet(server_id=0, set_id=0, metric_id=0, start_date='1/1/2018', end_date='1/1/2018', 
+			dest_id="resDetail", chart_title='Metric Values');
 	</script>
 </body>
 </html>

@@ -14,7 +14,7 @@ Valid @GrHours values: 0, 1, 2, 4, 6, 8, 12
 	@GrHours = 2 means that data will be grouped by every 12 hours (24 / 2).
 	Default value is 0
 
-select * from dbo.MetricValuesWithStats('5/8/2018', '5/9/2018', null, null, null, 12)
+select * from dbo.MetricValuesWithStats('12/8/2018', '12/9/2018', null, null, null, 12)
 order by ServerID, MetricSetID, MetricID, TheDate, TimeStart
 */
 RETURNS TABLE
@@ -72,7 +72,7 @@ RETURN
 		res.ServerID, res.MetricSetID, res.MetricID,
 		TheDate = res.TheDate,
 		TimeStart = res.TimeStart,
-		TimeEnd = res.TimeEnd,
+		TimeEnd = case when res.TimeEnd = '00:00:00' then '23:59:59' else res.TimeEnd end,
 		Value_Lo = res.Value_Lo,
 		Value_Hi = res.Value_Hi,
 		Value_Avg = res.Value_Avg,

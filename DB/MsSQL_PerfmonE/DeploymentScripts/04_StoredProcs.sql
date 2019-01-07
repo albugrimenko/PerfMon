@@ -207,28 +207,21 @@ Valid @GrHours values: 0, 1, 2, 4, 6, 8, 12
 	@GrHours = 2 means that data will be grouped by every 12 hours (24 / 2).
 	Default value is 0
 
-select * from dbo.MetricValuesWithStats('5/8/2018', '5/9/2018', null, null, null, 12)
-order by ServerID, MetricSetID, MetricID, Date, TimeStart
+select * from dbo.MetricValuesWithStats('12/8/2018', '12/9/2018', null, null, null, 12)
+order by ServerID, MetricSetID, MetricID, TheDate, TimeStart
 */
-RETURNS @t TABLE 
-(
-	ServerID int, MetricSetID int, MetricID int,
-	TheDate date, TimeStart time, TimeEnd time,
-	Value_Lo float, Value_Hi float, Value_Avg float,
-	StatValue_Lo float, StatValue_Hi float,	StatValue_Avg float, StatValue_Std float,
-	StatRatio float
-)
+RETURNS TABLE
 AS
-BEGIN
-	
-	if @GrHours is null or @GrHours < 0 or @GrHours > 12
-		set @GrHours = 0
-	
-	-- Fill the table variable with the rows for your result set
-	; with d as (
+RETURN
+(	
+	with d as (
 		select ID, TheDate, DayInYear, DayInWeek
 		from Dates
 		where TheDate between @StartDate and @EndDate
+	),
+	t as (
+		select TimeID_min, TimeID_max, Time_min, Time_max
+		from TimesGrouped where GrHours = @GrHours
 	),
 	mv as (
 		select top(2147483647)
@@ -263,22 +256,16 @@ BEGIN
 			Value_Hi = max(mv.Value),
 			Value_Avg = avg(mv.Value)
 		from mv
-			--join TimesGrouped t on t.GrHours = @GrHours 
-			join (select * from TimesGrouped where GrHours = @GrHours) t on 
-				mv.TimeID between t.TimeID_min and t.TimeID_max
+			join t on mv.TimeID between t.TimeID_min and t.TimeID_max
 		group by mv.ServerID, mv.MetricSetID, mv.MetricID, 
 			mv.DateID, mv.DayInWeek, mv.TheDate, 
 			t.TimeID_min, t.TimeID_max, t.Time_min, t.Time_max
 	)
-	insert into @t (ServerID, MetricSetID, MetricID,
-		TheDate, TimeStart, TimeEnd, Value_Lo, Value_Hi, Value_Avg,
-		StatValue_Lo, StatValue_Hi, StatValue_Avg, StatValue_Std,
-		StatRatio)
 	select
 		res.ServerID, res.MetricSetID, res.MetricID,
 		TheDate = res.TheDate,
 		TimeStart = res.TimeStart,
-		TimeEnd = res.TimeEnd,
+		TimeEnd = case when res.TimeEnd = '00:00:00' then '23:59:59' else res.TimeEnd end,
 		Value_Lo = res.Value_Lo,
 		Value_Hi = res.Value_Hi,
 		Value_Avg = res.Value_Avg,
@@ -288,9 +275,7 @@ BEGIN
 		StatValue_Std = stat.Value_Std,
 		StatRatio = case 
 			when stat.Value_Avg is null then null
-			when stat.Value_Avg is not null and stat.Value_Lo > 0 and res.Value_Hi <= stat.Value_Lo then -100
-			when stat.Value_Avg is not null and stat.Value_Hi > 0 and res.Value_Lo >= stat.Value_Hi then +100
-			when stat.Value_Std is not null and stat.Value_Std != 0 then
+			when stat.Value_Avg is not null and isnull(stat.Value_Std,0) != 0 then
 				(res.Value_Avg - stat.Value_Avg) / stat.Value_Std
 			else 0	-- STD == 0
 		end
@@ -301,10 +286,7 @@ BEGIN
 			and stat.MetricSetID = res.MetricSetID 
 			and stat.MetricID = res.MetricID
 			and stat.StartTimeID = res.TimeIDStart
-	--order by res.ServerID, res.MetricSetID, res.MetricID, res.DateID, res.TimeIDStart
-
-	RETURN 
-END
+);
 GO
 GRANT SELECT ON [dbo].[MetricValuesWithStats] TO [reporter] AS [dbo]
 GO

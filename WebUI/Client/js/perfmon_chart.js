@@ -330,7 +330,7 @@ function drawchart_mv(dest_id, data, title) {
 	legend.html('<br /><h5>Legend:</h5>' +
 		'<ul>' + 
 			'<li><b>Solid Line</b> - exact metric values.</li>' +
-			'<li><b>Dashed Line</b> - historical min/max values for the same one hour period.</li>' + 
+			'<li><b>Area (or dashed line)</b> - historical min/max values for the same one hour period.</li>' + 
 		'</ul>' +
 		'<p>' +
 			'* - click on a chart to draw horizontal line for easy comparison of values.<br />' +
@@ -537,7 +537,7 @@ function drawchart_mvdet(dest_id, data, title) {
 		'<ul>' + 
 			'<li><b>Box</b> - represents aggregation time period with min and max values as its lower and higher bars.</li>' +
 			'<li><b>Solid Line</b> - average values for the period.</li>' +
-			'<li><b>Dashed Line</b> - historical min/max values for the same period.</li>' + 
+			'<li><b>Area (or dashed line)</b> - historical min/max values for the same period.</li>' + 
 		'</ul>' +
 		'<p>' +
 			'* - click on a chart to draw horizontal line for easy comparison of values.<br />' +

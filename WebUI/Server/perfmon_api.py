@@ -19,6 +19,8 @@ ROUTES = [
     (r"/lookup/metric/(?P<server_name_id>[\w-]+)?/(?P<set_name_id>[()\w-]+)?", api_lkp.LookupMetricApiHandler),
     (r"/report/dashboard", api_rpt.ReportDahsboardApiHandler),
     (r"/report/html/dashboard", api_rpt.ReportHTMLDahsboardApiHandler),
+    (r"/report/issues/(?P<server_name_id>[\w-]+)?", api_rpt.ReportIssuesApiHandler),
+    (r"/report/html/issues/(?P<server_name_id>[\w-]+)?", api_rpt.ReportHTMLIssuesApiHandler),
     (r"/metricvalues/raw/(?P<server_name_id>[\w-]+)?/(?P<set_name_id>[()\w-]+)?/(?P<metric_name_id>[()\w-]+)?",
         api_mv.MetricValuesRawApiHandler),
     (r"/metricvalues/det/(?P<server_name_id>[\w-]+)?/(?P<set_name_id>[()\w-]+)?/(?P<metric_name_id>[()\w-]+)?",

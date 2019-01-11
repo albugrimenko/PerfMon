@@ -42,7 +42,7 @@ function getLookup(objName, params, destProp, status) {
 	return true;
 }
 
- var viewModel = {
+var viewModel = {
 	status: ko.observable(),
 	lkpServers: ko.observableArray(),
 	selectedServer: ko.observable(),
@@ -78,7 +78,16 @@ viewModel.dateRangeDays.subscribe(function(newValue) {
 	$('#dateStart').val(getDateString(today.addDays(-eval(newValue))));
 });
 
-// load data
-viewModel.dateRangeDays("7");
-getLookup("server", null, viewModel.lkpServers, viewModel.status);
+function resetDates(startDate, endDate) {
+	viewModel.dateRangeDays("0");
+	var d = document.getElementById('dateEnd');
+	d.value = startDate;
+	d = document.getElementById('dateStart');
+	d.value = endDate;
+}
+function resetServer(server_id) {
+	// does not work...
+	//viewModel.selectedServer().id = server_id;
+}
+
 

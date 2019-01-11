@@ -2,10 +2,12 @@ CREATE PROCEDURE [dbo].[GetPotentialIssues]
 	@ServerID int = null, @ServerName nvarchar(200) = null, 
 	@MetricSetID int = null, @MetricSetName nvarchar(200) = null,
 	@MetricID int = null, @MetricName nvarchar(200) = null,
+	@StartDate date = null, @EndDate date = null,
 	@SigmaNum money = 3
 
-/* Gets most recent (last 1 day) recorded values for a particular server/metric for specified date range
+/* Gets recorded values for a particular server/metric for specified date range
 	where average value is differ from recorded average for more than @SigmaNum standard deviations.
+	If date range is not specified, most recent (last 1 day) will be shown.
 
 exec GetPotentialIssues @ServerID=3, @SigmaNum=3
 */
@@ -16,9 +18,10 @@ set nocount on;
 --set transaction isolation level snapshot;
 
 ---- params 
-declare @GrHours tinyint = 1,
-		@StartDate date = dateadd(day, -1, getdate()),
-		@EndDate date = getdate()
+declare @GrHours tinyint = 1
+
+if @StartDate is null or @EndDate is null
+	select @StartDate = dateadd(day, -1, getdate()), @EndDate = getdate()
 
 if @ServerID is null and len(isnull(@ServerName,'')) > 0
 	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0
@@ -60,13 +63,14 @@ if @SigmaNum < 0
 )
 select 
 	TheDate,
+	TimeStart,
+	TimeEnd,
 	ServerID = r.ServerID,
+	MetricSetID = r.MetricSetID, 
+	MetricID = r.MetricID,
 	[Server] = s.Name,
 	MetricSet = ms.Name,
 	Metric = m.Name,
-	TimeStart,
-	TimeEnd,
-	StatRatioDescr,
 	Value_Lo,
 	Value_Hi,
 	Value_Avg,
@@ -74,11 +78,12 @@ select
 	StatValue_Hi,
 	StatValue_Avg,
 	StatValue_Std,
-	StatRatio
+	StatRatio,
+	StatRatioDescr
 from r
-	join [Servers] s on r.ServerID = s.ID
-	join MetricSets ms on r.MetricSetID = ms.ID
-	join Metrics m on r.MetricID = m.ID
+	join [Servers] s (nolock) on r.ServerID = s.ID
+	join MetricSets ms (nolock) on r.MetricSetID = ms.ID
+	join Metrics m (nolock) on r.MetricID = m.ID
 order by TheDate, s.Name, ms.Name, m.Name, TimeStart
 
 RETURN 1

@@ -16,7 +16,11 @@
                         {% end %}
                     </ul>
                 </div>
-                <a href="#" class="card-link muted">see details</a>
+                <a class="card-link muted" href="javascript:;"
+                   onclick="getReportWithDates('issues',
+                        [ {{ item["server_id"] }} ],
+                        'resDetail', 'Potential Issues: {{ escape(item["server_name"]) }}',
+                        '{{ item["date"] }}','{{ item["date"] }}');">see details</a>
             </div>
         </div>
     </div>

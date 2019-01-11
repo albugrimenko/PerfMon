@@ -47,12 +47,89 @@ begin
 
 	return 
 end
+
 GO
 GRANT SELECT ON [dbo].[CSV2Table] TO [public] AS [dbo]
 GO
-SET ANSI_NULLS ON
+CREATE FUNCTION [dbo].[GetStatRatioDescr](@StatRatio float)
+--
+-- Gets stat ratio description (StatRatio is computed in the MetricValuesWithStats)
+--
+RETURNS nvarchar(15)
+AS
+BEGIN
+	declare @res nvarchar(15) = case
+		when @StatRatio is null then 'Unknown'
+
+		when @StatRatio is not null and @StatRatio < -5 then 'Extremely Low'
+		when @StatRatio is not null and @StatRatio >= -5 and @StatRatio < -3 then 'Very Low'
+		when @StatRatio is not null and @StatRatio >= -3 and @StatRatio < -2 then 'Low'
+
+		when @StatRatio is not null and @StatRatio > 2 and @StatRatio <= 3 then 'High'
+		when @StatRatio is not null and @StatRatio > 3 and @StatRatio <= 5 then 'Very High'
+		when @StatRatio is not null and @StatRatio > 5 then 'Extremely High'
+
+		else 'OK'
+	end
+
+	RETURN @res
+END
+
 GO
-SET QUOTED_IDENTIFIER ON
+GRANT EXECUTE ON [dbo].[GetStatRatioDescr] TO [reporter] AS [dbo]
+GO
+CREATE FUNCTION [dbo].[GetValueFromCSV] 
+(	
+	@ItemsStr nvarchar(max), -- comma separated list of values to be returned
+	@sep char(1) = ',',		-- separator chaacter
+	@ItemNumber int = 1		-- item number to get
+)
+RETURNS nvarchar(200)
+AS
+
+/*
+select dbo.GetValueFromCSV('\Network Interface(Intel(R) Ethernet Connection I217-LM)\Bytes Sent/sec', '\', 2)
+select dbo.GetValueFromCSV('Bytes Sent/sec', '\', 2)
+select dbo.GetValueFromCSV('Bytes Sent/sec', '\', 1)
+*/
+
+begin
+	declare @ItemsList nvarchar(max),
+			@Item nvarchar(200), 
+			@Pos int;
+
+	declare @Items table (ID int identity(1,1), Item nvarchar(200))
+
+	--possible separators char(13),char(9)-tab; char(10)(LF) gets removed
+	select @ItemsList = LTRIM(RTRIM(
+		replace(
+			replace(
+				replace(@ItemsStr, char(13), @sep)
+				, char(9), @sep)
+			, char(10), '')
+		)) + @sep
+
+	select @Pos = CHARINDEX(@sep, @ItemsList, 1)
+	if REPLACE(@ItemsList, @sep, '') <> '' begin
+		while @Pos > 0 begin
+			select @Item = LTRIM(RTRIM(LEFT(@ItemsList, @Pos - 1)))
+			if @Item <> '' begin
+				insert into @Items (Item) 
+				values (@Item)
+			end
+			select @ItemsList = RIGHT(@ItemsList, LEN(@ItemsList) - @Pos)
+			select @Pos = CHARINDEX(@sep, @ItemsList, 1)
+		end
+	end	
+
+	select @Item = null
+	select @Item = Item from @Items where ID = @ItemNumber
+
+	return @Item
+end
+
+GO
+GRANT EXECUTE ON [dbo].[GetValueFromCSV] TO [public] AS [dbo]
 GO
 CREATE FUNCTION [dbo].[TimeGrouped](@GrHours tinyint)
 /*
@@ -104,96 +181,9 @@ BEGIN
 	
 	RETURN
 END
+
 GO
 GRANT SELECT ON [dbo].[TimeGrouped] TO [public] AS [dbo]
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE FUNCTION [dbo].[GetStatRatioDescr](@StatRatio float)
---
--- Gets stat ratio description (StatRatio is computed in the MetricValuesWithStats)
---
-RETURNS nvarchar(15)
-AS
-BEGIN
-	declare @res nvarchar(15) = case
-		when @StatRatio is null then 'Unknown'
-		--when @StatRatio is not null and @StatRatio = 0 then 'Undefined'
-		when @StatRatio is not null and @StatRatio = -100 then 'Extremely Low'
-		when @StatRatio is not null and @StatRatio = +100 then 'Extremely High'
-		when @StatRatio is not null and @StatRatio > -100 and @StatRatio < -2 then 'Very Low'
-		when @StatRatio is not null and @StatRatio >= -2 and @StatRatio < -1 then 'Low'
-		when @StatRatio is not null and @StatRatio < 100 and @StatRatio > 2 then 'Very High'
-		when @StatRatio is not null and @StatRatio <= 2 and @StatRatio > 1 then 'High'
-		else 'OK'
-	end
-
-	RETURN @res
-END
-GO
-GRANT EXECUTE ON [dbo].[GetStatRatioDescr] TO [reporter] AS [dbo]
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE FUNCTION [dbo].[GetValueFromCSV] 
-(	
-	@ItemsStr nvarchar(max), -- comma separated list of values to be returned
-	@sep char(1) = ',',		-- separator chaacter
-	@ItemNumber int = 1		-- item number to get
-)
-RETURNS nvarchar(200)
-AS
-
-/*
-select dbo.GetValueFromCSV('\Network Interface(Intel(R) Ethernet Connection I217-LM)\Bytes Sent/sec', '\', 2)
-select dbo.GetValueFromCSV('Bytes Sent/sec', '\', 2)
-select dbo.GetValueFromCSV('Bytes Sent/sec', '\', 1)
-*/
-
-begin
-	declare @ItemsList nvarchar(max),
-			@Item nvarchar(200), 
-			@Pos int;
-
-	declare @Items table (ID int identity(1,1), Item nvarchar(200))
-
-	--possible separators char(13),char(9)-tab; char(10)(LF) gets removed
-	select @ItemsList = LTRIM(RTRIM(
-		replace(
-			replace(
-				replace(@ItemsStr, char(13), @sep)
-				, char(9), @sep)
-			, char(10), '')
-		)) + @sep
-
-	select @Pos = CHARINDEX(@sep, @ItemsList, 1)
-	if REPLACE(@ItemsList, @sep, '') <> '' begin
-		while @Pos > 0 begin
-			select @Item = LTRIM(RTRIM(LEFT(@ItemsList, @Pos - 1)))
-			if @Item <> '' begin
-				insert into @Items (Item) 
-				values (@Item)
-			end
-			select @ItemsList = RIGHT(@ItemsList, LEN(@ItemsList) - @Pos)
-			select @Pos = CHARINDEX(@sep, @ItemsList, 1)
-		end
-	end	
-
-	select @Item = null
-	select @Item = Item from @Items where ID = @ItemNumber
-
-	return @Item
-end
-GO
-GRANT EXECUTE ON [dbo].[GetValueFromCSV] TO [public] AS [dbo]
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
 GO
 CREATE FUNCTION [dbo].[MetricValuesWithStats] (
 	@StartDate date, @EndDate date,
@@ -287,16 +277,863 @@ RETURN
 			and stat.MetricID = res.MetricID
 			and stat.StartTimeID = res.TimeIDStart
 );
+
 GO
 GRANT SELECT ON [dbo].[MetricValuesWithStats] TO [reporter] AS [dbo]
 GO
-SET ANSI_NULLS ON
+CREATE PROCEDURE [dbo].[GetLookupID]
+	@ObjectName as varchar(30), @ObjectValue as nvarchar(200),
+	@IsAutoAdd bit = 0
+
+/*
+declare @r int
+exec @r=[GetLookupID] @ObjectName='metricsets', @ObjectValue='memory'
+select @r
+*/
+
+AS
+set nocount on;
+--set transaction isolation level snapshot;
+
+declare @Result int
+set @ObjectValue = ltrim(rtrim(@ObjectValue))
+
+if (lower(@ObjectName) = 'servers') begin
+	select @Result = ID from Servers where lower(Name) = lower(@ObjectValue)
+	if isnull(@Result, 0) < 1 and @IsAutoAdd = 1 begin
+		insert into Servers (Name) 
+		values (@ObjectValue)
+		select @Result = scope_identity()
+	end
+end
+
+if (lower(@ObjectName) = 'metrics') begin
+	select @Result = ID from Metrics where lower(Name) = lower(@ObjectValue)
+	if isnull(@Result, 0) < 1 and @IsAutoAdd = 1 begin
+		insert into Metrics (Name) 
+		values (@ObjectValue)
+		select @Result = scope_identity()
+	end
+end
+
+if (lower(@ObjectName) = 'metricsets') begin
+	select @Result = ID from MetricSets where lower(Name) = lower(@ObjectValue)
+	if isnull(@Result, 0) < 1 and @IsAutoAdd = 1 begin
+		insert into MetricSets (Name) 
+		values (@ObjectValue)
+		select @Result = scope_identity()
+	end
+end
+
+if isnull(@Result, 0) < 1 and @IsAutoAdd = 1
+	raiserror('Cannot find or create an entry in the [%s] with value [%s].', 16, 1, @ObjectName, @ObjectValue)
+
+RETURN isnull(@Result, 0)
+
 GO
-SET QUOTED_IDENTIFIER ON
+GRANT EXECUTE ON [dbo].[GetLookupID] TO [perfmon] AS [dbo]
 GO
-SET ANSI_NULLS ON
+CREATE PROCEDURE [dbo].[GetMetricList]
+	@ServerID int = null, @ServerName nvarchar(200) = null,
+	@MetricSetID int = null, @MetricSetName nvarchar(200) = null
+
+--
+-- Gets unique Metric list.
+--	If @ServerID/Name is specified, this list is unique for a specified server.
+--  If @MetricSetID/Name is specified, this list is (also) unique for a specified metric set.
+--
+
+/*
+exec GetMetricList @ServerID=1, @MetricSetName='Memory'
+*/
+
+AS
+set nocount on;
+--set transaction isolation level snapshot;
+
+if @ServerID is null and len(isnull(@ServerName,'')) > 0
+	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0
+
+if @MetricSetID is null and len(isnull(@MetricSetName,'')) > 0
+	exec @MetricSetID=GetLookupID @ObjectName='metricsets', @ObjectValue=@MetricSetName, @IsAutoAdd=0
+
+if @ServerID is not null begin
+	select 
+		ms.ID,
+		ms.Name
+	from Metrics ms (nolock)
+		join (
+			select MetricID 
+			from Server_MetricSets (nolock)
+			where ServerID = @ServerID 
+				and (@MetricSetID is null or MetricSetID = @MetricSetID)
+			group by MetricID
+		) sms on sms.MetricID = ms.ID
+	order by Name
+end else if @MetricSetID is not null begin
+	select 
+		ms.ID,
+		ms.Name
+	from Metrics ms (nolock)
+		join (
+			select distinct MetricID 
+			from Server_MetricSets (nolock)
+			where MetricSetID = @MetricSetID
+			group by MetricID
+		) sms on sms.MetricID = ms.ID
+	order by Name
+end else begin
+	select 
+		ID,
+		Name
+	from Metrics (nolock)
+	order by Name
+end
+
+RETURN 1
+
 GO
-SET QUOTED_IDENTIFIER ON
+GRANT EXECUTE ON [dbo].[GetMetricList] TO [reporter] AS [dbo]
+GO
+CREATE PROCEDURE [dbo].[GetMetricSetList]
+	@ServerID int = null, @ServerName nvarchar(200) = null
+
+--
+-- Gets unique MetricSet list.
+--	If @ServerID/Name is specified, this list is unique for a specified server.
+--
+
+/* 
+exec GetMetricSetList @ServerID=1
+*/
+
+AS
+set nocount on;
+--set transaction isolation level snapshot;
+
+if @ServerID is null and len(isnull(@ServerName,'')) > 0
+	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0
+
+if @ServerID is not null begin
+	select 
+		ms.ID,
+		ms.Name
+	from MetricSets ms (nolock)
+		join (
+			select MetricSetID 
+			from Server_MetricSets (nolock)
+			where ServerID = @ServerID 
+			group by MetricSetID
+		) sms on sms.MetricSetID = ms.ID
+	order by Name
+end else begin
+	select 
+		ID,
+		Name
+	from MetricSets (nolock)
+	order by Name
+end
+
+RETURN 1
+
+GO
+GRANT EXECUTE ON [dbo].[GetMetricSetList] TO [reporter] AS [dbo]
+GO
+CREATE PROCEDURE [dbo].[GetMetricValueStats]
+	@ServerID int = null, @ServerName nvarchar(200) = null, 
+	@MetricSetID int = null, @MetricSetName nvarchar(200) = null,
+	@MetricID int = null, @MetricName nvarchar(200) = null,
+	@GrHours tinyint = 2
+
+--
+-- @GrHours - Grouping for stats values. Valid time groups (hours): 0, 1, 2, 4, 6, 8, 12
+--	0 is equivalent of 24 and means there will be no aggregation by time.
+--
+
+/* Gets basic stats for a particular server/metric for specified date range
+
+exec GetMetricValueStats @ServerID=1, @MetricSetName='Processor(_Total)', 
+	@MetricName='% Processor Time',
+	@GrHours=2
+*/
+--with recompile
+
+AS
+set nocount on;
+--set transaction isolation level snapshot;
+
+---- params 
+if @GrHours is null or @GrHours < 0 or @GrHours > 24
+	set @GrHours = 2
+
+if @ServerID is null and len(isnull(@ServerName,'')) > 0
+	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0
+
+if @MetricSetID is null and len(isnull(@MetricSetName,'')) > 0
+	exec @MetricSetID=GetLookupID @ObjectName='metricsets', @ObjectValue=@MetricSetName, @IsAutoAdd=0
+
+if @MetricID is null and len(isnull(@MetricName,'')) > 0
+	exec @MetricID=GetLookupID @ObjectName='metrics', @ObjectValue=@MetricName, @IsAutoAdd=0
+
+if (@ServerID is NULL) begin
+	raiserror('ServerID or ServerName is required.', 16, 1)
+	RETURN -1
+end
+if (@MetricSetID is NULL) begin
+	raiserror('MetricSetID or MetricSetName is required.', 16, 1)
+	RETURN -1
+end
+if (@MetricID is NULL) begin
+	raiserror('MetricID or MetricName is required.', 16, 1)
+	RETURN -1
+end
+
+---- get data
+select --top(2147483647)
+	s.DayInWeek,
+	s.GrNumber,
+	StartTime = tstart.TheTime,
+	EndTime = dateadd(second,5,tend.TheTime), -- it just look nice
+	s.Value_Hi,
+	s.Value_Lo,
+	s.Value_Avg,
+	s.Value_Std
+from MetricValueStats s
+	join Times tstart on s.StartTimeID = tstart.ID
+	join Times tend on s.EndTimeID = tend.ID
+where s.ServerID = @ServerID
+	and s.MetricSetID = @MetricSetID
+	and s.MetricID = @MetricID
+	and GrHours = @GrHours
+order by s.DayInWeek, s.GrNumber
+
+RETURN 1
+
+GO
+GRANT EXECUTE ON [dbo].[GetMetricValueStats] TO [reporter] AS [dbo]
+GO
+CREATE PROCEDURE [dbo].[GetMetricValues]
+	@StartDate date, @EndDate date,
+
+	@ServerID int = null, @ServerName nvarchar(200) = null, 
+	@MetricSetID int = null, @MetricSetName nvarchar(200) = null,
+	@MetricID int = null, @MetricName nvarchar(200) = null
+
+/* Gets all recorded values for a particular server/metric for specified date range
+
+exec GetMetricValues @StartDate = '12/16/2018', @EndDate = '12/16/2018',
+	@ServerID=4, @MetricSetName='Processor(_Total)', 
+	@MetricName='% Processor Time'
+*/
+--with recompile
+
+AS
+set nocount on;
+--set transaction isolation level snapshot;
+
+---- params 
+if @EndDate is NULL
+	set @EndDate = getdate()
+if @StartDate is NULL
+	set @StartDate = dateadd(week, -1, @EndDate)
+
+if @ServerID is null and len(isnull(@ServerName,'')) > 0
+	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0
+
+if @MetricSetID is null and len(isnull(@MetricSetName,'')) > 0
+	exec @MetricSetID=GetLookupID @ObjectName='metricsets', @ObjectValue=@MetricSetName, @IsAutoAdd=0
+
+if @MetricID is null and len(isnull(@MetricName,'')) > 0
+	exec @MetricID=GetLookupID @ObjectName='metrics', @ObjectValue=@MetricName, @IsAutoAdd=0
+
+if (@ServerID is NULL) begin
+	raiserror('ServerID or ServerName is required.', 16, 1)
+	RETURN -1
+end
+if (@MetricSetID is NULL) begin
+	raiserror('MetricSetID or MetricSetName is required.', 16, 1)
+	RETURN -1
+end
+if (@MetricID is NULL) begin
+	raiserror('MetricID or MetricName is required.', 16, 1)
+	RETURN -1
+end
+
+---- get data
+; with fdates as (
+	select ID, TheDate, DayInYear
+	from Dates (nolock)
+	where TheDate between @StartDate and @EndDate
+)
+select --top(2147483647)
+	[Date] = d.TheDate,
+	[Time] = t.TheTime,
+	Value = mv.Value
+from MetricValues mv (nolock)
+	join fdates d on mv.DateID = d.ID 
+		and mv.DayInYear = d.DayInYear	-- required for proper partitions usage
+	join Times t (nolock) on mv.TimeID = t.ID
+where --m.DayInYear in (select DayInYear from fdates group by DayInYear)
+	mv.ServerID = @ServerID
+	and mv.MetricSetID = @MetricSetID
+	and mv.MetricID = @MetricID
+order by d.ID, t.ID
+
+RETURN 1
+
+GO
+GRANT EXECUTE ON [dbo].[GetMetricValues] TO [reporter] AS [dbo]
+GO
+CREATE PROCEDURE [dbo].[GetMetricValuesDet]
+	@StartDate date, @EndDate date,
+
+	@ServerID int = null, @ServerName nvarchar(200) = null, 
+	@MetricSetID int = null, @MetricSetName nvarchar(200) = null,
+	@MetricID int = null, @MetricName nvarchar(200) = null,
+	@GrHours tinyint = null
+
+/* Gets all recorded values for a particular server/metric for specified date range
+	with a corresponding statistics.
+
+exec GetMetricValuesDet @StartDate = '5/8/2018', @EndDate = '5/9/2018',
+	@ServerID=1, @MetricSetName='Processor(_Total)', 
+	@MetricName='% Processor Time',
+	@GrHours=2
+*/
+--with recompile
+
+AS
+set nocount on;
+--set transaction isolation level snapshot;
+
+---- params 
+if @EndDate is NULL
+	set @EndDate = getdate()
+if @StartDate is NULL
+	set @StartDate = dateadd(week, -1, @EndDate)
+
+if @GrHours is null begin
+	if dateadd(day, 14, @StartDate) <= @EndDate	-- 2 weeks and more - every 12 hrs ~ 14 * (24/12) = 28 points
+		set @GrHours = 12
+	else if dateadd(day, 7, @StartDate) <= @EndDate	-- 1 week - every 6 hrs ~ 7 * (24/6) = 28 points
+		set @GrHours = 6
+	else if dateadd(day, 5, @StartDate) <= @EndDate	-- 5 days - every 4 hrs ~ 5 * (24/4) = 30 points
+		set @GrHours = 4
+	else if dateadd(day, 3, @StartDate) <= @EndDate	-- 3 days - every 2 hrs ~ 3 * (24/12) = 36 points
+		set @GrHours = 2
+	else
+		set @GrHours = 1	-- every 1 hour
+end
+
+--TEST
+--print @GrHours
+
+if @ServerID is null and len(isnull(@ServerName,'')) > 0
+	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0
+
+if @MetricSetID is null and len(isnull(@MetricSetName,'')) > 0
+	exec @MetricSetID=GetLookupID @ObjectName='metricsets', @ObjectValue=@MetricSetName, @IsAutoAdd=0
+
+if @MetricID is null and len(isnull(@MetricName,'')) > 0
+	exec @MetricID=GetLookupID @ObjectName='metrics', @ObjectValue=@MetricName, @IsAutoAdd=0
+
+if (@ServerID is NULL) begin
+	raiserror('ServerID or ServerName is required.', 16, 1)
+	RETURN -1
+end
+if (@MetricSetID is NULL) begin
+	raiserror('MetricSetID or MetricSetName is required.', 16, 1)
+	RETURN -1
+end
+if (@MetricID is NULL) begin
+	raiserror('MetricID or MetricName is required.', 16, 1)
+	RETURN -1
+end
+
+---- get data
+-- MetricValuesWithStats (@StartDate date, @EndDate date,@ServerID int = null, 
+--		@MetricSetID int = null, @MetricID int = null, @GrHours)
+select
+	TheDate,
+	TimeStart,
+	TimeEnd,
+	Value_Lo,
+	Value_Hi,
+	Value_Avg,
+	StatValue_Lo,
+	StatValue_Hi,
+	StatValue_Avg,
+	StatValue_Std,
+	StatRatio = cast(StatRatio as money),
+	StatRatioDescr = dbo.GetStatRatioDescr(StatRatio)
+from dbo.MetricValuesWithStats(@StartDate, @EndDate, @ServerID, @MetricSetID, @MetricID, @GrHours) mv
+order by TheDate, TimeStart
+
+
+/*
+; with d as (
+	select ID, TheDate, DayInYear, DayInWeek
+	from Dates
+	where TheDate between @StartDate and @EndDate
+),
+mv as (
+	select top(2147483647)
+		m.ServerID,
+		m.MetricSetID,
+		m.MetricID,
+		m.DateID,
+		m.TimeID,
+		m.Value,
+		TheDate = d.TheDate,
+		DayInWeek = d.DayInWeek
+	from MetricValues m
+		join d on m.DayInYear = d.DayInYear	-- required for proper partitions usage
+			and m.DateID = d.ID 
+	where m.ServerID = @ServerID
+		and m.MetricSetID = @MetricSetID
+		and m.MetricID = @MetricID
+),
+mv_grouped as (
+	select
+		mv.ServerID,
+		mv.MetricSetID,
+		mv.MetricID,
+		DateID = mv.DateID,
+		DayInWeek = mv.DayInWeek,
+		TheDate = mv.TheDate,
+		TimeStart = t.Time_min,
+		TimeEnd = t.Time_max,
+		TimeIDStart = t.TimeID_min,
+		TimeIDEnd = t.TimeID_max,
+		Value_Lo = min(mv.Value),
+		Value_Hi = max(mv.Value),
+		Value_Avg = avg(mv.Value)
+	from mv
+		join (select * from TimesGrouped where GrHours = @GrHours) t on 
+			mv.TimeID between t.TimeID_min and t.TimeID_max
+	group by mv.ServerID, mv.MetricSetID, mv.MetricID, 
+		mv.DateID, mv.DayInWeek, mv.TheDate, 
+		t.TimeID_min, t.TimeID_max, t.Time_min, t.Time_max
+)
+select
+	[Date] = res.TheDate,
+	TimeStart = res.TimeStart,
+	TimeEnd = res.TimeEnd,
+	Value_Lo = res.Value_Lo,
+	Value_Hi = res.Value_Hi,
+	Value_Avg = res.Value_Avg,
+	StatValue_Lo = stat.Value_Lo,
+	StatValue_Hi = stat.Value_Hi,
+	StatValue_Avg = stat.Value_Avg,
+	StatValue_Std = stat.Value_Std,
+	StatRatio = case 
+		when stat.Value_Avg is null then null
+		when stat.Value_Avg is not null and res.Value_Hi <= stat.Value_Lo then -100
+		when stat.Value_Avg is not null and res.Value_Lo >= stat.Value_Hi then +100
+		when stat.Value_Std is not null and stat.Value_Std != 0 then
+			(res.Value_Avg - stat.Value_Avg) / stat.Value_Std
+		else 0	-- STD == 0
+	end
+from mv_grouped res
+	left join MetricValueStats stat on stat.GrHours = @GrHours
+		and stat.DayInWeek = res.DayInWeek
+		and stat.ServerID = res.ServerID
+		and stat.MetricSetID = res.MetricSetID 
+		and stat.MetricID = res.MetricID
+		and stat.StartTimeID = res.TimeIDStart
+order by res.DateID, res.TimeIDStart
+*/
+
+RETURN 1
+
+GO
+GRANT EXECUTE ON [dbo].[GetMetricValuesDet] TO [reporter] AS [dbo]
+GO
+CREATE PROCEDURE [dbo].[GetMetricValuesWithStats]
+	@StartDate date, @EndDate date,
+
+	@ServerID int = null, @ServerName nvarchar(200) = null, 
+	@MetricSetID int = null, @MetricSetName nvarchar(200) = null,
+	@MetricID int = null, @MetricName nvarchar(200) = null
+
+/* Gets all recorded values for a particular server/metric for specified date range
+
+exec GetMetricValuesWithStats @StartDate = '12/16/2018', @EndDate = '12/16/2018',
+	@ServerID=4, @MetricSetName='Processor(_Total)', 
+	@MetricName='% Processor Time'
+*/
+--with recompile
+
+AS
+set nocount on;
+--set transaction isolation level snapshot;
+
+---- params 
+if @EndDate is NULL
+	set @EndDate = getdate()
+if @StartDate is NULL
+	set @StartDate = dateadd(week, -1, @EndDate)
+
+if @ServerID is null and len(isnull(@ServerName,'')) > 0
+	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0
+
+if @MetricSetID is null and len(isnull(@MetricSetName,'')) > 0
+	exec @MetricSetID=GetLookupID @ObjectName='metricsets', @ObjectValue=@MetricSetName, @IsAutoAdd=0
+
+if @MetricID is null and len(isnull(@MetricName,'')) > 0
+	exec @MetricID=GetLookupID @ObjectName='metrics', @ObjectValue=@MetricName, @IsAutoAdd=0
+
+if (@ServerID is NULL) begin
+	raiserror('ServerID or ServerName is required.', 16, 1)
+	RETURN -1
+end
+if (@MetricSetID is NULL) begin
+	raiserror('MetricSetID or MetricSetName is required.', 16, 1)
+	RETURN -1
+end
+if (@MetricID is NULL) begin
+	raiserror('MetricID or MetricName is required.', 16, 1)
+	RETURN -1
+end
+
+---- get data
+; with fdates as (
+	select ID, TheDate, DayInYear, DayInWeek
+	from Dates (nolock)
+	where TheDate between @StartDate and @EndDate
+)
+select --top(2147483647)
+	[Date] = d.TheDate,
+	[Time] = t.TheTime,
+	Value = mv.Value,
+	StatValue_Lo = s.Value_Lo,
+	StatValue_Hi = s.Value_Hi,
+	StatValue_Avg = s.Value_Avg,
+	StatValue_Std = s.Value_Std
+from MetricValues mv (nolock)
+	join fdates d on mv.DateID = d.ID 
+		and mv.DayInYear = d.DayInYear	-- required for proper partitions usage
+	join Times t (nolock) on mv.TimeID = t.ID
+
+	left join MetricValueStats s (nolock) on mv.ServerID = s.ServerID and mv.MetricSetID = s.MetricSetID and mv.MetricID = s.MetricID
+		and s.GrHours = 1
+		and d.DayInWeek = s.DayInWeek and mv.TimeID between s.StartTimeID and s.EndTimeID
+where --m.DayInYear in (select DayInYear from fdates group by DayInYear)
+	mv.ServerID = @ServerID
+	and mv.MetricSetID = @MetricSetID
+	and mv.MetricID = @MetricID
+order by d.ID, t.ID
+
+RETURN 1
+
+GO
+GRANT EXECUTE ON [dbo].[GetMetricValuesWithStats] TO [reporter] AS [dbo]
+GO
+CREATE PROCEDURE [dbo].[GetPotentialIssues]
+	@ServerID int = null, @ServerName nvarchar(200) = null, 
+	@MetricSetID int = null, @MetricSetName nvarchar(200) = null,
+	@MetricID int = null, @MetricName nvarchar(200) = null,
+	@StartDate date = null, @EndDate date = null,
+	@SigmaNum money = 3
+
+/* Gets recorded values for a particular server/metric for specified date range
+	where average value is differ from recorded average for more than @SigmaNum standard deviations.
+	If date range is not specified, most recent (last 1 day) will be shown.
+
+exec GetPotentialIssues @ServerID=3, @SigmaNum=3
+*/
+--with recompile
+
+AS
+set nocount on;
+--set transaction isolation level snapshot;
+
+---- params 
+declare @GrHours tinyint = 1
+
+if @StartDate is null or @EndDate is null
+	select @StartDate = dateadd(day, -1, getdate()), @EndDate = getdate()
+
+if @ServerID is null and len(isnull(@ServerName,'')) > 0
+	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0
+
+if @MetricSetID is null and len(isnull(@MetricSetName,'')) > 0
+	exec @MetricSetID=GetLookupID @ObjectName='metricsets', @ObjectValue=@MetricSetName, @IsAutoAdd=0
+
+if @MetricID is null and len(isnull(@MetricName,'')) > 0
+	exec @MetricID=GetLookupID @ObjectName='metrics', @ObjectValue=@MetricName, @IsAutoAdd=0
+
+if (@ServerID is NULL) begin
+	raiserror('ServerID or ServerName is required.', 16, 1)
+	RETURN -1
+end
+
+if @SigmaNum < 0
+	set @SigmaNum = abs(@SigmaNum)
+
+---- get data
+-- MetricValuesWithStats (@StartDate date, @EndDate date,@ServerID int = null, 
+--		@MetricSetID int = null, @MetricID int = null, @GrHours)
+; with r as (
+	select
+		ServerID, MetricSetID, MetricID,
+		TheDate,
+		TimeStart,
+		TimeEnd,
+		Value_Lo,
+		Value_Hi,
+		Value_Avg,
+		StatValue_Lo,
+		StatValue_Hi,
+		StatValue_Avg,
+		StatValue_Std,
+		StatRatio = cast(StatRatio as money),
+		StatRatioDescr = dbo.GetStatRatioDescr(StatRatio)
+	from dbo.MetricValuesWithStats(@StartDate, @EndDate, @ServerID, @MetricSetID, @MetricID, @GrHours) mv
+	where (StatRatio < -@SigmaNum or StatRatio > @SigmaNum)
+)
+select 
+	TheDate,
+	TimeStart,
+	TimeEnd,
+	ServerID = r.ServerID,
+	MetricSetID = r.MetricSetID, 
+	MetricID = r.MetricID,
+	[Server] = s.Name,
+	MetricSet = ms.Name,
+	Metric = m.Name,
+	Value_Lo,
+	Value_Hi,
+	Value_Avg,
+	StatValue_Lo,
+	StatValue_Hi,
+	StatValue_Avg,
+	StatValue_Std,
+	StatRatio,
+	StatRatioDescr
+from r
+	join [Servers] s (nolock) on r.ServerID = s.ID
+	join MetricSets ms (nolock) on r.MetricSetID = ms.ID
+	join Metrics m (nolock) on r.MetricID = m.ID
+order by TheDate, s.Name, ms.Name, m.Name, TimeStart
+
+RETURN 1
+
+GO
+GRANT EXECUTE ON [dbo].[GetPotentialIssues] TO [reporter] AS [dbo]
+GO
+CREATE PROCEDURE [dbo].[GetPotentialIssues4All]
+	@SigmaNum money = 3,
+	@IsCompressedMode bit = 1
+
+/* Gets most recent (last 2 days) recorded values for specified date range
+	where average value is differ from recorded average for more than @SigmaNum standard deviations.
+	Shows as aggregated values per server/time frame.
+
+   When @IsCompressedMode = 1, it groups by a short metric set name (defined in the MetricSetGroups)
+
+exec GetPotentialIssues4All @SigmaNum=2, @IsCompressedMode=0
+*/
+--with recompile
+
+AS
+set nocount on;
+--set transaction isolation level snapshot;
+
+---- params 
+declare @GrHours tinyint = 1,
+		@StartDate date = dateadd(day, -2, getdate()),
+		@EndDate date = getdate()
+
+if @SigmaNum < 0
+	set @SigmaNum = abs(@SigmaNum)
+
+---- get data
+-- MetricValuesWithStats (@StartDate date, @EndDate date, @ServerID int = null, 
+--		@MetricSetID int = null, @MetricID int = null, @GrHours)
+if @IsCompressedMode = 0 begin
+	; with r as (
+		select
+			ServerID, MetricSetID, MetricID,
+			TheDate,
+			StatRatioDescr = dbo.GetStatRatioDescr(StatRatio),
+			TimeIntervals = count(*),
+			TimeStart = min(TimeStart),
+			TimeEnd = max(TimeEnd)
+		from dbo.MetricValuesWithStats(@StartDate, @EndDate, null, null, null, @GrHours) mv
+		where (StatRatio < -@SigmaNum or StatRatio > @SigmaNum)
+		group by ServerID, MetricSetID, MetricID, TheDate, dbo.GetStatRatioDescr(StatRatio)
+	)
+	select 
+		ServerID = r.ServerID,
+		[Server] = s.Name,
+		MetricName = ms.Name + ' - ' + m.Name,
+		TheDate,
+		StatRatioDescr,
+		TimeIntervals,
+		TimeStart,
+		TimeEnd
+	from r
+		join [Servers] s (nolock) on r.ServerID = s.ID
+		join MetricSets ms (nolock) on r.MetricSetID = ms.ID
+		join Metrics m (nolock) on r.MetricID = m.ID
+end else begin
+	-- compressed mode
+	; with r as (
+		select
+			ServerID, MetricSetID, 
+			TheDate,
+			StatRatioDescr = '',	--dbo.GetStatRatioDescr(StatRatio),
+			TimeIntervals = count(*),
+			TimeStart = min(TimeStart),
+			TimeEnd = max(TimeEnd)
+		from dbo.MetricValuesWithStats(@StartDate, @EndDate, null, null, null, @GrHours) mv
+		where (StatRatio < -@SigmaNum or StatRatio > @SigmaNum)
+		group by ServerID, MetricSetID, TheDate	--, dbo.GetStatRatioDescr(StatRatio)
+	)
+	select 
+		ServerID = r.ServerID,
+		[Server] = s.Name,
+		MetricName = isnull(msg.GroupName, ms.Name),
+		TheDate,
+		StatRatioDescr = min(StatRatioDescr),
+		TimeIntervals = max(TimeIntervals),	-- cannot use sum because it is grouped diffferently
+		TimeStart = min(TimeStart),
+		TimeEnd = max(TimeEnd)
+	from r
+		join [Servers] s (nolock) on r.ServerID = s.ID
+		join MetricSets ms (nolock) on r.MetricSetID = ms.ID
+		left join MetricSetGroups msg (nolock) on ms.Name like msg.MetricSetName_StartWith + '%'
+	group by ServerID, s.Name, isnull(msg.GroupName, ms.Name), TheDate
+	order by TheDate desc, ServerID, s.Name, isnull(msg.GroupName, ms.Name)
+end
+
+RETURN 1
+
+GO
+GRANT EXECUTE ON [dbo].[GetPotentialIssues4All] TO [reporter] AS [dbo]
+GO
+CREATE PROCEDURE [dbo].[GetServerList]
+
+AS
+set nocount on;
+--set transaction isolation level snapshot;
+
+select 
+	ID,
+	Name
+from Servers (nolock)
+order by Name
+
+RETURN 1
+
+GO
+GRANT EXECUTE ON [dbo].[GetServerList] TO [reporter] AS [dbo]
+GO
+CREATE PROCEDURE [dbo].[srv_ComputeStats]
+	@StartDate date = null,
+	@EndDate date = null
+
+--
+-- Computes basic stats of MetricValues.
+--
+-- When dates are not populated, default date stats range will be used:
+--		4 weeks, starting 1 week prior to the current week
+--
+
+/*
+exec srv_ComputeStats @StartDate='5/1/2018', @EndDate='5/10/2018'
+*/
+
+AS
+set nocount on;
+
+-- Valid @GrHours values: 0, 1, 2, 4, 6, 8, 12
+declare @GrHours tinyint = 0,
+		@res int = 0
+
+-- default date stats range is 4 weeks, starting 1 week prior to the current week
+--	just to make sure we did not catch any recent days irregularity
+if @StartDate is null or @EndDate is null begin
+	select @StartDate = dateadd(week,-1-4,getdate()),
+		   @EndDate = dateadd(week,-1,getdate())
+	-- extra check for data availability to avoid empty stats
+	declare @sd date, @ed date
+	; with r as (
+		select 
+			MinDateID = min(v.DateID),
+			MaxDateID = max(v.DateID)
+		from MetricValues v
+	)
+	select 
+		@sd = dmin.TheDate,
+		@ed = dmax.TheDate
+	from r
+		join Dates dmin on r.MinDateID = dmin.ID
+		join Dates dmax on r.MaxDateID = dmax.ID
+	if @EndDate < @sd
+		select @StartDate = @sd, @EndDate=@ed
+end
+
+truncate table MetricValueStats
+
+while @GrHours <= 12 begin
+	print '-- Group by # hours: '  + cast(@GrHours as varchar(20))
+
+	-- compute and save stats
+	; with d as (
+		select ID, TheDate, DayInYear, DayInWeek
+		from Dates
+		where TheDate between @StartDate and @EndDate
+	), mv as (
+		select top(2147483647)
+			m.ServerID,
+			m.MetricSetID,
+			m.MetricID,
+			DateID = d.ID,
+			DayInWeek = d.DayInWeek,
+			TimeID = m.TimeID,
+			Value = m.Value
+		from MetricValues m
+			join d on m.DayInYear = d.DayInYear	-- required for proper partitions usage
+				and m.DateID = d.ID 
+	)
+	insert into MetricValueStats (ServerID, MetricSetID, MetricID,
+		GrHours, GrNumber, DayInWeek, StartTimeID, EndTimeID, 
+		Value_Lo, Value_Hi, Value_Avg, Value_Std)
+	select 
+		ServerID = mv.ServerID,
+		MetricSetID = mv.MetricSetID,
+		MetricID = mv.MetricID,
+		GrHours = @GrHours,
+		GrNumber = t.GrNumber,
+		DayInWeek = mv.DayInWeek, 
+		StartTimeID = t.TimeID_min,
+		EndTimeID = t.TimeID_max,
+		Value_Lo = min(mv.Value),
+		Value_Hi = max(mv.Value),
+		Value_Avg = avg(mv.Value),
+		Value_Std = isnull(stdev(mv.Value), 0)
+	from mv
+		--join #times t on mv.TimeID between t.ID_min and t.ID_max
+		join (select * from TimesGrouped where GrHours = @GrHours) t on 
+			mv.TimeID between t.TimeID_min and t.TimeID_max
+	group by mv.ServerID, mv.MetricSetID, mv.MetricID, t.GrNumber, mv.DayInWeek, t.TimeID_min, t.TimeID_max
+	--order by mv.ServerID, mv.MetricSetID, mv.MetricID, t.GrNumber, mv.DayInWeek, t.ID_min, t.ID_max
+	set @res = @@rowcount
+	print '-+ # rows inserted: '  + cast(@res as varchar(20))
+
+	if @GrHours < 2
+		set @GrHours += 1
+	else if @GrHours < 8
+		set @GrHours += 2
+	else
+		set @GrHours += 4
+end
+
+print '--- DONE ---'
+
+RETURN 1
 GO
 CREATE PROCEDURE [dbo].[tools_SetUpDimentions]
 	@StartDate date = null,
@@ -465,792 +1302,6 @@ values ('Memory', 'Memory'),
 
 
 RETURN 1
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE PROCEDURE [dbo].[GetLookupID]
-	@ObjectName as varchar(30), @ObjectValue as nvarchar(200),
-	@IsAutoAdd bit = 0
-
-/*
-declare @r int
-exec @r=[GetLookupID] @ObjectName='metricsets', @ObjectValue='memory'
-select @r
-*/
-
-AS
-set nocount on;
-set transaction isolation level snapshot;
-
-declare @Result int
-set @ObjectValue = ltrim(rtrim(@ObjectValue))
-
-if (lower(@ObjectName) = 'servers') begin
-	select @Result = ID from Servers where lower(Name) = lower(@ObjectValue)
-	if isnull(@Result, 0) < 1 and @IsAutoAdd = 1 begin
-		insert into Servers (Name) 
-		values (@ObjectValue)
-		select @Result = scope_identity()
-	end
-end
-
-if (lower(@ObjectName) = 'metrics') begin
-	select @Result = ID from Metrics where lower(Name) = lower(@ObjectValue)
-	if isnull(@Result, 0) < 1 and @IsAutoAdd = 1 begin
-		insert into Metrics (Name) 
-		values (@ObjectValue)
-		select @Result = scope_identity()
-	end
-end
-
-if (lower(@ObjectName) = 'metricsets') begin
-	select @Result = ID from MetricSets where lower(Name) = lower(@ObjectValue)
-	if isnull(@Result, 0) < 1 and @IsAutoAdd = 1 begin
-		insert into MetricSets (Name) 
-		values (@ObjectValue)
-		select @Result = scope_identity()
-	end
-end
-
-if isnull(@Result, 0) < 1 and @IsAutoAdd = 1
-	raiserror('Cannot find or create an entry in the [%s] with value [%s].', 16, 1, @ObjectName, @ObjectValue)
-
-RETURN isnull(@Result, 0)
-GO
-GRANT EXECUTE ON [dbo].[GetLookupID] TO [perfmon] AS [dbo]
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE PROCEDURE [dbo].[GetMetricList]
-	@ServerID int = null, @ServerName nvarchar(200) = null,
-	@MetricSetID int = null, @MetricSetName nvarchar(200) = null
-
---
--- Gets unique Metric list.
---	If @ServerID/Name is specified, this list is unique for a specified server.
---  If @MetricSetID/Name is specified, this list is unique for a specified metric set.
---
-
-/*
-exec GetMetricList @ServerID=1, @MetricSetName='Memory'
-*/
-
-AS
-set nocount on;
-set transaction isolation level snapshot;
-
-if @ServerID is null and len(isnull(@ServerName,'')) > 0
-	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0
-
-if @MetricSetID is null and len(isnull(@MetricSetName,'')) > 0
-	exec @MetricSetID=GetLookupID @ObjectName='metricsets', @ObjectValue=@MetricSetName, @IsAutoAdd=0
-
-if @ServerID is not null begin
-	select 
-		ms.ID,
-		ms.Name
-	from Metrics ms --(nolock)
-		join (
-			select MetricID 
-			from Server_MetricSets --(nolock)
-			where ServerID = @ServerID 
-				and (@MetricSetID is null or MetricSetID = @MetricSetID)
-			group by MetricID
-		) sms on sms.MetricID = ms.ID
-	order by Name
-end else if @MetricSetID is not null begin
-	select 
-		ms.ID,
-		ms.Name
-	from Metrics ms --(nolock)
-		join (
-			select distinct MetricID 
-			from Server_MetricSets --(nolock)
-			where MetricSetID = @MetricSetID
-			group by MetricID
-		) sms on sms.MetricID = ms.ID
-	order by Name
-end else begin
-	select 
-		ID,
-		Name
-	from Metrics --(nolock)
-	order by Name
-end
-
-RETURN 1
-GO
-GRANT EXECUTE ON [dbo].[GetMetricList] TO [reporter] AS [dbo]
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE PROCEDURE [dbo].[GetMetricSetList]
-	@ServerID int = null, @ServerName nvarchar(200) = null
-
---
--- Gets unique MetricSet list.
---	If @ServerID/Name is specified, this list is unique for a specified server.
---
-
-/* 
-exec GetMetricSetList @ServerID=1
-*/
-
-AS
-set nocount on;
-set transaction isolation level snapshot;
-
-if @ServerID is null and len(isnull(@ServerName,'')) > 0
-	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0
-
-if @ServerID is not null begin
-	select 
-		ms.ID,
-		ms.Name
-	from MetricSets ms
-		join (
-			select MetricSetID 
-			from Server_MetricSets 
-			where ServerID = @ServerID 
-			group by MetricSetID
-		) sms on sms.MetricSetID = ms.ID
-	order by Name
-end else begin
-	select 
-		ID,
-		Name
-	from MetricSets --(nolock)
-	order by Name
-end
-
-RETURN 1
-GO
-GRANT EXECUTE ON [dbo].[GetMetricSetList] TO [reporter] AS [dbo]
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE PROCEDURE [dbo].[GetMetricValueStats]
-	@ServerID int = null, @ServerName nvarchar(200) = null, 
-	@MetricSetID int = null, @MetricSetName nvarchar(200) = null,
-	@MetricID int = null, @MetricName nvarchar(200) = null,
-	@GrHours tinyint = 2
-
---
--- @GrHours - Grouping for stats values. Valid time groups (hours): 0, 1, 2, 4, 6, 8, 12
---	0 is equivalent of 24 and means there will be no aggregation by time.
---
-
-/* Gets basic stats for a particular server/metric for specified date range
-
-exec GetMetricValueStats @ServerID=1, @MetricSetName='Processor(_Total)', 
-	@MetricName='% Processor Time',
-	@GrHours=2
-*/
---with recompile
-
-AS
-set nocount on;
-set transaction isolation level snapshot;
-
----- params 
-if @GrHours is null or @GrHours < 0 or @GrHours > 24
-	set @GrHours = 2
-
-if @ServerID is null and len(isnull(@ServerName,'')) > 0
-	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0
-
-if @MetricSetID is null and len(isnull(@MetricSetName,'')) > 0
-	exec @MetricSetID=GetLookupID @ObjectName='metricsets', @ObjectValue=@MetricSetName, @IsAutoAdd=0
-
-if @MetricID is null and len(isnull(@MetricName,'')) > 0
-	exec @MetricID=GetLookupID @ObjectName='metrics', @ObjectValue=@MetricName, @IsAutoAdd=0
-
-if (@ServerID is NULL) begin
-	raiserror('ServerID or ServerName is required.', 16, 1)
-	RETURN -1
-end
-if (@MetricSetID is NULL) begin
-	raiserror('MetricSetID or MetricSetName is required.', 16, 1)
-	RETURN -1
-end
-if (@MetricID is NULL) begin
-	raiserror('MetricID or MetricName is required.', 16, 1)
-	RETURN -1
-end
-
----- get data
-select --top(2147483647)
-	s.DayInWeek,
-	s.GrNumber,
-	StartTime = tstart.TheTime,
-	EndTime = dateadd(second,5,tend.TheTime), -- it just look nice
-	s.Value_Hi,
-	s.Value_Lo,
-	s.Value_Avg,
-	s.Value_Std
-from MetricValueStats s
-	join Times tstart on s.StartTimeID = tstart.ID
-	join Times tend on s.EndTimeID = tend.ID
-where s.ServerID = @ServerID
-	and s.MetricSetID = @MetricSetID
-	and s.MetricID = @MetricID
-	and GrHours = @GrHours
-order by s.DayInWeek, s.GrNumber
-
-RETURN 1
-GO
-GRANT EXECUTE ON [dbo].[GetMetricValueStats] TO [reporter] AS [dbo]
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE PROCEDURE [dbo].[GetMetricValues]
-	@StartDate date, @EndDate date,
-
-	@ServerID int = null, @ServerName nvarchar(200) = null, 
-	@MetricSetID int = null, @MetricSetName nvarchar(200) = null,
-	@MetricID int = null, @MetricName nvarchar(200) = null
-
-/* Gets all recorded values for a particular server/metric for specified date range
-
-exec GetMetricValues @StartDate = '5/7/2018', @EndDate = '5/10/2018',
-	@ServerID=1, @MetricSetName='Processor(_Total)', 
-	@MetricName='% Processor Time'
-*/
---with recompile
-
-AS
-set nocount on;
-set transaction isolation level snapshot;
-
----- params 
-if @EndDate is NULL
-	set @EndDate = getdate()
-if @StartDate is NULL
-	set @StartDate = dateadd(week, -1, @EndDate)
-
-if @ServerID is null and len(isnull(@ServerName,'')) > 0
-	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0
-
-if @MetricSetID is null and len(isnull(@MetricSetName,'')) > 0
-	exec @MetricSetID=GetLookupID @ObjectName='metricsets', @ObjectValue=@MetricSetName, @IsAutoAdd=0
-
-if @MetricID is null and len(isnull(@MetricName,'')) > 0
-	exec @MetricID=GetLookupID @ObjectName='metrics', @ObjectValue=@MetricName, @IsAutoAdd=0
-
-if (@ServerID is NULL) begin
-	raiserror('ServerID or ServerName is required.', 16, 1)
-	RETURN -1
-end
-if (@MetricSetID is NULL) begin
-	raiserror('MetricSetID or MetricSetName is required.', 16, 1)
-	RETURN -1
-end
-if (@MetricID is NULL) begin
-	raiserror('MetricID or MetricName is required.', 16, 1)
-	RETURN -1
-end
-
----- get data
-; with fdates as (
-	select ID, TheDate, DayInYear
-	from Dates
-	where TheDate between @StartDate and @EndDate
-)
-select --top(2147483647)
-	[Date] = d.TheDate,
-	[Time] = t.TheTime,
-	Value = mv.Value
-from MetricValues mv
-	join fdates d on mv.DateID = d.ID 
-		and mv.DayInYear = d.DayInYear	-- required for proper partitions usage
-	join Times t on mv.TimeID = t.ID
-where --m.DayInYear in (select DayInYear from fdates group by DayInYear)
-	mv.ServerID = @ServerID
-	and mv.MetricSetID = @MetricSetID
-	and mv.MetricID = @MetricID
-order by d.ID, t.ID
-
-RETURN 1
-GO
-GRANT EXECUTE ON [dbo].[GetMetricValues] TO [reporter] AS [dbo]
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE PROCEDURE [dbo].[GetMetricValuesDet]
-	@StartDate date, @EndDate date,
-
-	@ServerID int = null, @ServerName nvarchar(200) = null, 
-	@MetricSetID int = null, @MetricSetName nvarchar(200) = null,
-	@MetricID int = null, @MetricName nvarchar(200) = null,
-	@GrHours tinyint = null
-
-/* Gets all recorded values for a particular server/metric for specified date range
-	with a corresponding statistics.
-
-exec GetMetricValuesDet @StartDate = '5/8/2018', @EndDate = '5/9/2018',
-	@ServerID=1, @MetricSetName='Processor(_Total)', 
-	@MetricName='% Processor Time',
-	@GrHours=2
-*/
---with recompile
-
-AS
-set nocount on;
-set transaction isolation level snapshot;
-
----- params 
-if @EndDate is NULL
-	set @EndDate = getdate()
-if @StartDate is NULL
-	set @StartDate = dateadd(week, -1, @EndDate)
-
-if @GrHours is null begin
-	if dateadd(day, 14, @StartDate) > @EndDate	-- 2 weeks and more - every 12 hrs ~ 14 * (24/12) = 28 points
-		set @GrHours = 12
-	else if dateadd(day, 7, @StartDate) > @EndDate	-- 1 week - every 6 hrs ~ 7 * (24/6) = 28 points
-		set @GrHours = 6
-	else if dateadd(day, 5, @StartDate) > @EndDate	-- 5 days - every 4 hrs ~ 5 * (24/4) = 30 points
-		set @GrHours = 4
-	else if dateadd(day, 3, @StartDate) > @EndDate	-- 3 days - every 2 hrs ~ 3 * (24/12) = 36 points
-		set @GrHours = 4
-	else
-		set @GrHours = 1	-- every 1 hour
-end
-
-if @ServerID is null and len(isnull(@ServerName,'')) > 0
-	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0
-
-if @MetricSetID is null and len(isnull(@MetricSetName,'')) > 0
-	exec @MetricSetID=GetLookupID @ObjectName='metricsets', @ObjectValue=@MetricSetName, @IsAutoAdd=0
-
-if @MetricID is null and len(isnull(@MetricName,'')) > 0
-	exec @MetricID=GetLookupID @ObjectName='metrics', @ObjectValue=@MetricName, @IsAutoAdd=0
-
-if (@ServerID is NULL) begin
-	raiserror('ServerID or ServerName is required.', 16, 1)
-	RETURN -1
-end
-if (@MetricSetID is NULL) begin
-	raiserror('MetricSetID or MetricSetName is required.', 16, 1)
-	RETURN -1
-end
-if (@MetricID is NULL) begin
-	raiserror('MetricID or MetricName is required.', 16, 1)
-	RETURN -1
-end
-
----- get data
--- MetricValuesWithStats (@StartDate date, @EndDate date,@ServerID int = null, 
---		@MetricSetID int = null, @MetricID int = null, @GrHours)
-select
-	TheDate,
-	TimeStart,
-	TimeEnd,
-	Value_Lo,
-	Value_Hi,
-	Value_Avg,
-	StatValue_Lo,
-	StatValue_Hi,
-	StatValue_Avg,
-	StatValue_Std,
-	StatRatio = cast(StatRatio as money),
-	StatRatioDescr = dbo.GetStatRatioDescr(StatRatio)
-from dbo.MetricValuesWithStats(@StartDate, @EndDate, @ServerID, @MetricSetID, @MetricID, @GrHours) mv
-order by TheDate, TimeStart
-
-
-/*
-; with d as (
-	select ID, TheDate, DayInYear, DayInWeek
-	from Dates
-	where TheDate between @StartDate and @EndDate
-),
-mv as (
-	select top(2147483647)
-		m.ServerID,
-		m.MetricSetID,
-		m.MetricID,
-		m.DateID,
-		m.TimeID,
-		m.Value,
-		TheDate = d.TheDate,
-		DayInWeek = d.DayInWeek
-	from MetricValues m
-		join d on m.DayInYear = d.DayInYear	-- required for proper partitions usage
-			and m.DateID = d.ID 
-	where m.ServerID = @ServerID
-		and m.MetricSetID = @MetricSetID
-		and m.MetricID = @MetricID
-),
-mv_grouped as (
-	select
-		mv.ServerID,
-		mv.MetricSetID,
-		mv.MetricID,
-		DateID = mv.DateID,
-		DayInWeek = mv.DayInWeek,
-		TheDate = mv.TheDate,
-		TimeStart = t.Time_min,
-		TimeEnd = t.Time_max,
-		TimeIDStart = t.TimeID_min,
-		TimeIDEnd = t.TimeID_max,
-		Value_Lo = min(mv.Value),
-		Value_Hi = max(mv.Value),
-		Value_Avg = avg(mv.Value)
-	from mv
-		join (select * from TimesGrouped where GrHours = @GrHours) t on 
-			mv.TimeID between t.TimeID_min and t.TimeID_max
-	group by mv.ServerID, mv.MetricSetID, mv.MetricID, 
-		mv.DateID, mv.DayInWeek, mv.TheDate, 
-		t.TimeID_min, t.TimeID_max, t.Time_min, t.Time_max
-)
-select
-	[Date] = res.TheDate,
-	TimeStart = res.TimeStart,
-	TimeEnd = res.TimeEnd,
-	Value_Lo = res.Value_Lo,
-	Value_Hi = res.Value_Hi,
-	Value_Avg = res.Value_Avg,
-	StatValue_Lo = stat.Value_Lo,
-	StatValue_Hi = stat.Value_Hi,
-	StatValue_Avg = stat.Value_Avg,
-	StatValue_Std = stat.Value_Std,
-	StatRatio = case 
-		when stat.Value_Avg is null then null
-		when stat.Value_Avg is not null and res.Value_Hi <= stat.Value_Lo then -100
-		when stat.Value_Avg is not null and res.Value_Lo >= stat.Value_Hi then +100
-		when stat.Value_Std is not null and stat.Value_Std != 0 then
-			(res.Value_Avg - stat.Value_Avg) / stat.Value_Std
-		else 0	-- STD == 0
-	end
-from mv_grouped res
-	left join MetricValueStats stat on stat.GrHours = @GrHours
-		and stat.DayInWeek = res.DayInWeek
-		and stat.ServerID = res.ServerID
-		and stat.MetricSetID = res.MetricSetID 
-		and stat.MetricID = res.MetricID
-		and stat.StartTimeID = res.TimeIDStart
-order by res.DateID, res.TimeIDStart
-*/
-
-RETURN 1
-GO
-GRANT EXECUTE ON [dbo].[GetMetricValuesDet] TO [reporter] AS [dbo]
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE PROCEDURE [dbo].[GetMetricValuesWithStats]
-	@StartDate date, @EndDate date,
-
-	@ServerID int = null, @ServerName nvarchar(200) = null, 
-	@MetricSetID int = null, @MetricSetName nvarchar(200) = null,
-	@MetricID int = null, @MetricName nvarchar(200) = null
-
-/* Gets all recorded values for a particular server/metric for specified date range
-
-exec GetMetricValuesWithStats @StartDate = '12/16/2018', @EndDate = '12/16/2018',
-	@ServerID=4, @MetricSetName='Processor(_Total)', 
-	@MetricName='% Processor Time'
-*/
---with recompile
-
-AS
-set nocount on;
---set transaction isolation level snapshot;
-
----- params 
-if @EndDate is NULL
-	set @EndDate = getdate()
-if @StartDate is NULL
-	set @StartDate = dateadd(week, -1, @EndDate)
-
-if @ServerID is null and len(isnull(@ServerName,'')) > 0
-	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0
-
-if @MetricSetID is null and len(isnull(@MetricSetName,'')) > 0
-	exec @MetricSetID=GetLookupID @ObjectName='metricsets', @ObjectValue=@MetricSetName, @IsAutoAdd=0
-
-if @MetricID is null and len(isnull(@MetricName,'')) > 0
-	exec @MetricID=GetLookupID @ObjectName='metrics', @ObjectValue=@MetricName, @IsAutoAdd=0
-
-if (@ServerID is NULL) begin
-	raiserror('ServerID or ServerName is required.', 16, 1)
-	RETURN -1
-end
-if (@MetricSetID is NULL) begin
-	raiserror('MetricSetID or MetricSetName is required.', 16, 1)
-	RETURN -1
-end
-if (@MetricID is NULL) begin
-	raiserror('MetricID or MetricName is required.', 16, 1)
-	RETURN -1
-end
-
----- get data
-; with fdates as (
-	select ID, TheDate, DayInYear, DayInWeek
-	from Dates (nolock)
-	where TheDate between @StartDate and @EndDate
-)
-select --top(2147483647)
-	[Date] = d.TheDate,
-	[Time] = t.TheTime,
-	Value = mv.Value,
-	StatValue_Lo = s.Value_Lo,
-	StatValue_Hi = s.Value_Hi,
-	StatValue_Avg = s.Value_Avg,
-	StatValue_Std = s.Value_Std
-from MetricValues mv (nolock)
-	join fdates d on mv.DateID = d.ID 
-		and mv.DayInYear = d.DayInYear	-- required for proper partitions usage
-	join Times t (nolock) on mv.TimeID = t.ID
-
-	left join MetricValueStats s (nolock) on mv.ServerID = s.ServerID and mv.MetricSetID = s.MetricSetID and mv.MetricID = s.MetricID
-		and s.GrHours = 1
-		and d.DayInWeek = s.DayInWeek and mv.TimeID between s.StartTimeID and s.EndTimeID
-where --m.DayInYear in (select DayInYear from fdates group by DayInYear)
-	mv.ServerID = @ServerID
-	and mv.MetricSetID = @MetricSetID
-	and mv.MetricID = @MetricID
-order by d.ID, t.ID
-
-RETURN 1
-GO
-GRANT EXECUTE ON [dbo].[GetMetricValuesWithStats] TO [reporter] AS [dbo]
-GO
-CREATE PROCEDURE [dbo].[GetPotentialIssues]
-	@ServerID int = null, @ServerName nvarchar(200) = null, 
-	@MetricSetID int = null, @MetricSetName nvarchar(200) = null,
-	@MetricID int = null, @MetricName nvarchar(200) = null,
-	@SigmaNum money = 3
-
-/* Gets most recent (last 2 days) recorded values for a particular server/metric for specified date range
-	where average value is differ from recorded average for more than @SigmaNum standard deviations.
-
-exec GetPotentialIssues @ServerID=1, @SigmaNum=2
-*/
---with recompile
-
-AS
-set nocount on;
-set transaction isolation level snapshot;
-
----- params 
-declare @GrHours tinyint = 1,
-		@StartDate date = dateadd(day, -2, getdate()),
-		@EndDate date = getdate()
-
-if @ServerID is null and len(isnull(@ServerName,'')) > 0
-	exec @ServerID=GetLookupID @ObjectName='servers', @ObjectValue=@ServerName, @IsAutoAdd=0
-
-if @MetricSetID is null and len(isnull(@MetricSetName,'')) > 0
-	exec @MetricSetID=GetLookupID @ObjectName='metricsets', @ObjectValue=@MetricSetName, @IsAutoAdd=0
-
-if @MetricID is null and len(isnull(@MetricName,'')) > 0
-	exec @MetricID=GetLookupID @ObjectName='metrics', @ObjectValue=@MetricName, @IsAutoAdd=0
-
-if (@ServerID is NULL) begin
-	raiserror('ServerID or ServerName is required.', 16, 1)
-	RETURN -1
-end
-
-if @SigmaNum < 0
-	set @SigmaNum = abs(@SigmaNum)
-
----- get data
--- MetricValuesWithStats (@StartDate date, @EndDate date,@ServerID int = null, 
---		@MetricSetID int = null, @MetricID int = null, @GrHours)
-; with r as (
-	select
-		ServerID, MetricSetID, MetricID,
-		TheDate,
-		TimeStart,
-		TimeEnd,
-		Value_Lo,
-		Value_Hi,
-		Value_Avg,
-		StatValue_Lo,
-		StatValue_Hi,
-		StatValue_Avg,
-		StatValue_Std,
-		StatRatio = cast(StatRatio as money),
-		StatRatioDescr = dbo.GetStatRatioDescr(StatRatio)
-	from dbo.MetricValuesWithStats(@StartDate, @EndDate, @ServerID, @MetricSetID, @MetricID, @GrHours) mv
-	where (StatRatio < -@SigmaNum or StatRatio > @SigmaNum)
-)
-select 
-	TheDate,
-	[Server] = s.Name,
-	MetricSet = ms.Name,
-	Metric = m.Name,
-	TimeStart,
-	TimeEnd,
-	StatRatioDescr,
-	Value_Lo,
-	Value_Hi,
-	Value_Avg,
-	StatValue_Lo,
-	StatValue_Hi,
-	StatValue_Avg,
-	StatValue_Std,
-	StatRatio
-from r
-	join [Servers] s on r.ServerID = s.ID
-	join MetricSets ms on r.MetricSetID = ms.ID
-	join Metrics m on r.MetricID = m.ID
-order by TheDate, s.Name, ms.Name, m.Name, TimeStart
-
-RETURN 1
-GO
-GRANT EXECUTE ON [dbo].[GetPotentialIssues] TO [reporter] AS [dbo]
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-
-CREATE PROCEDURE [dbo].[GetServerList]
-
-AS
-set nocount on;
-set transaction isolation level snapshot;
-
-select 
-	ID,
-	Name
-from Servers --(nolock)
-order by Name
-
-RETURN 1
-GO
-GRANT EXECUTE ON [dbo].[GetServerList] TO [reporter] AS [dbo]
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE PROCEDURE [dbo].[srv_ComputeStats]
-	@StartDate date = null,
-	@EndDate date = null
-
---
--- Computes basic stats of MetricValues.
---
--- When dates are not populated, default date stats range will be used:
---		4 weeks, starting 1 week prior to the current week
---
-
-/*
-exec srv_ComputeStats @StartDate='5/1/2018', @EndDate='5/10/2018'
-*/
-
-AS
-set nocount on;
-
--- Valid @GrHours values: 0, 1, 2, 4, 6, 8, 12
-declare @GrHours tinyint = 0,
-		@res int = 0
-
--- default date stats range is 4 weeks, starting 1 week prior to the current week
---	just to make sure we did not catch any recent days irregularity
-if @StartDate is null or @EndDate is null begin
-	select @StartDate = dateadd(week,-1-4,getdate()),
-		   @EndDate = dateadd(week,-1,getdate())
-	-- extra check for data availability to avoid empty stats
-	declare @sd date, @ed date
-	; with r as (
-		select 
-			MinDateID = min(v.DateID),
-			MaxDateID = max(v.DateID)
-		from MetricValues v
-	)
-	select 
-		@sd = dmin.TheDate,
-		@ed = dmax.TheDate
-	from r
-		join Dates dmin on r.MinDateID = dmin.ID
-		join Dates dmax on r.MaxDateID = dmax.ID
-	if @EndDate < @sd
-		select @StartDate = @sd, @EndDate=@ed
-end
-
-truncate table MetricValueStats
-
-while @GrHours <= 12 begin
-	print '-- Group by # hours: '  + cast(@GrHours as varchar(20))
-
-	-- compute and save stats
-	; with d as (
-		select ID, TheDate, DayInYear, DayInWeek
-		from Dates
-		where TheDate between @StartDate and @EndDate
-	), mv as (
-		select top(2147483647)
-			m.ServerID,
-			m.MetricSetID,
-			m.MetricID,
-			DateID = d.ID,
-			DayInWeek = d.DayInWeek,
-			TimeID = m.TimeID,
-			Value = m.Value
-		from MetricValues m
-			join d on m.DayInYear = d.DayInYear	-- required for proper partitions usage
-				and m.DateID = d.ID 
-	)
-	insert into MetricValueStats (ServerID, MetricSetID, MetricID,
-		GrHours, GrNumber, DayInWeek, StartTimeID, EndTimeID, 
-		Value_Lo, Value_Hi, Value_Avg, Value_Std)
-	select 
-		ServerID = mv.ServerID,
-		MetricSetID = mv.MetricSetID,
-		MetricID = mv.MetricID,
-		GrHours = @GrHours,
-		GrNumber = t.GrNumber,
-		DayInWeek = mv.DayInWeek, 
-		StartTimeID = t.TimeID_min,
-		EndTimeID = t.TimeID_max,
-		Value_Lo = min(mv.Value),
-		Value_Hi = max(mv.Value),
-		Value_Avg = avg(mv.Value),
-		Value_Std = isnull(stdev(mv.Value), 0)
-	from mv
-		--join #times t on mv.TimeID between t.ID_min and t.ID_max
-		join (select * from TimesGrouped where GrHours = @GrHours) t on 
-			mv.TimeID between t.TimeID_min and t.TimeID_max
-	group by mv.ServerID, mv.MetricSetID, mv.MetricID, t.GrNumber, mv.DayInWeek, t.TimeID_min, t.TimeID_max
-	--order by mv.ServerID, mv.MetricSetID, mv.MetricID, t.GrNumber, mv.DayInWeek, t.ID_min, t.ID_max
-	set @res = @@rowcount
-	print '-+ # rows inserted: '  + cast(@res as varchar(20))
-
-	if @GrHours < 2
-		set @GrHours += 1
-	else if @GrHours < 8
-		set @GrHours += 2
-	else
-		set @GrHours += 4
-end
-
-print '--- DONE ---'
-
-RETURN 1
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
 GO
 CREATE PROCEDURE [stage].[Perfmon_Import]
 	@ShowRes bit = 0,	-- prints results when 1
@@ -1456,6 +1507,7 @@ BEGIN CATCH
 END CATCH
 
 RETURN 1
+
 GO
 GRANT EXECUTE ON [stage].[Perfmon_Import] TO [importer] AS [dbo]
 GO

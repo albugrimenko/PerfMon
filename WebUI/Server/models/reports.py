@@ -59,5 +59,15 @@ class Reports(object):
 
         return res
 
+    @staticmethod
+    def get_issues(server_id=0, server_name="", start_date="", end_date=""):
+        import models.report_issues_sql as iss
+        if not Reports.is_initialized():
+            Reports.init()
+        rpt = iss.RptIssues(server_id=server_id, server_name=server_name, start_date=start_date, end_date=end_date)
+        rpt.load_sql(Reports.sql_constring)
+        return rpt
+
+
 if __name__ == "__main__":
     print(Reports.get_dashboard_card())

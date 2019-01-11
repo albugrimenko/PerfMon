@@ -6,20 +6,29 @@ import pyodbc as sql
 class MetricValueRawItem:
     """ Defines a raw data entry for a single metric """
 
-    def __init__(self, date, time, value):
+    def __init__(self, date, time, value, statvalue_lo, statvalue_hi, statvalue_avg, statvalue_std):
         self.date = date
         self.time = time
         self.value = value
+        self.statvalue_lo = float(statvalue_lo)
+        self.statvalue_hi = float(statvalue_hi)
+        self.statvalue_avg = float(statvalue_avg)
+        self.statvalue_std = float(statvalue_std)
 
     def serialize(self):
         return {
             "date": self.date,
             "time": self.time,
-            "value": self.value
+            "value": self.value,
+            "statvalue_lo": self.statvalue_lo,
+            "statvalue_hi": self.statvalue_hi,
+            "statvalue_avg": self.statvalue_avg,
+            "statvalue_std": self.statvalue_std,
         }
 
     def serialize_compact(self):
-        return [self.date, self.time, self.value]
+        return [self.date, self.time, self.value,
+                self.statvalue_lo, self.statvalue_hi, self.statvalue_avg, self.statvalue_std]
 
 
 class MetricValueRaw(object):
@@ -28,7 +37,8 @@ class MetricValueRaw(object):
     def __init__(self, start_date, end_date, server_id=0, server_name="",
                  set_id=0, set_name="", metric_id=0, metric_name=""):
         self.items = []
-        self.sql_statement = "exec GetMetricValues "    # SQL statement to load data
+        #self.sql_statement = "exec GetMetricValues "    # SQL statement to load data
+        self.sql_statement = "exec GetMetricValuesWithStats "  # SQL statement to load data
 
         param = list([
             "@StartDate='" + start_date + "'",
@@ -55,9 +65,9 @@ class MetricValueRaw(object):
 
         return
 
-    def add(self, date, time, value):
+    def add(self, date, time, value, statvalue_lo, statvalue_hi, statvalue_avg, statvalue_std):
         item = MetricValueRawItem(
-            date, time, value
+            date, time, value, statvalue_lo, statvalue_hi, statvalue_avg, statvalue_std
         )
         self.items.append(item)
 
@@ -77,8 +87,8 @@ class MetricValueRaw(object):
             cursor.execute(self.sql_statement)
             row = cursor.fetchone()
             while row:
-                date, time, value = row
-                self.add(date, time, value)
+                date, time, value, statvalue_lo, statvalue_hi, statvalue_avg, statvalue_std = row
+                self.add(date, time, value, statvalue_lo, statvalue_hi, statvalue_avg, statvalue_std)
                 row = cursor.fetchone()
         except:
             logging.error("MetricValueRaw.load_sql" + sys.exc_info().__str__())

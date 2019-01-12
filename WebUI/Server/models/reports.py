@@ -68,6 +68,15 @@ class Reports(object):
         rpt.load_sql(Reports.sql_constring)
         return rpt
 
+    @staticmethod
+    def get_dataav():
+        import models.report_dataav_sql as da
+        if not Reports.is_initialized():
+            Reports.init()
+        rpt = da.RptDataAv()
+        rpt.load_sql(Reports.sql_constring)
+        return rpt
+
 
 if __name__ == "__main__":
     print(Reports.get_dashboard_card())

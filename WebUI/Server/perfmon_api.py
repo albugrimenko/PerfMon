@@ -25,6 +25,8 @@ ROUTES = [
         api_mv.MetricValuesRawApiHandler),
     (r"/metricvalues/det/(?P<server_name_id>[\w-]+)?/(?P<set_name_id>[()\w-]+)?/(?P<metric_name_id>[()\w-]+)?",
         api_mv.MetricValuesDetApiHandler),
+    (r"/report/dataav", api_rpt.ReportDataAvApiHandler),
+    (r"/report/html/dataav", api_rpt.ReportHTMLDataAvApiHandler),
 ]
 
 

@@ -49,8 +49,8 @@ var viewModel = {
 	lkpMetricSets: ko.observableArray(),
 	selectedMetricSet: ko.observable(),
 	lkpMetrics: ko.observableArray(),
-	selectedMetric: ko.observable(),
-	dateRangeDays: ko.observable()
+	selectedMetric: ko.observable()
+	//dateRangeDays: ko.observable()
 };
 viewModel.status.subscribe(function(newStatus) {
 	var t = new Date().toLocaleTimeString().toLowerCase();
@@ -72,14 +72,14 @@ viewModel.selectedMetricSet.subscribe(function(newMetricSet) {
 	params.push(newMetricSet.id);
 	getLookup("metric", params, viewModel.lkpMetrics, viewModel.status);
 });
-viewModel.dateRangeDays.subscribe(function(newValue) {
-	var today = new Date();
-	$('#dateEnd').val(getDateString(today));
-	$('#dateStart').val(getDateString(today.addDays(-eval(newValue))));
-});
+// viewModel.dateRangeDays.subscribe(function(newValue) {
+	// var today = new Date();
+	// $('#dateEnd').val(getDateString(today));
+	// $('#dateStart').val(getDateString(today.addDays(-eval(newValue))));
+// });
 
 function resetDates(startDate, endDate) {
-	viewModel.dateRangeDays("0");
+	//viewModel.dateRangeDays("0");
 	var d = document.getElementById('dateEnd');
 	d.value = startDate;
 	d = document.getElementById('dateStart');

@@ -41,26 +41,19 @@
 					<select id="sel_Metric" class="form-control form-control-sm m-b-10"
 						data-bind="options: lkpMetrics, optionsText: 'name', value: selectedMetric"></select>
 				</div>
-				<div class="col col-lg-4">
-					<div class="m-b">
-						<label for="ctrRange_Dates" class="m-b-0">Date Range:</label><br>
-						<input type="range" class="form-control-range" id="ctrRange_Dates" min="0" max="30" step="1" 
-							data-bind="value: dateRangeDays">
-						<div class="row muted">
-							<div class="col-6">1 day</div>
-							<div class="col-6 text-right">1 month</div>
-						</div>
-					</div>
-					<div class="form-inline text-nowrap">
-						<input type="date" id="dateStart" class="form-control form-control-sm" style="width:150px;" required>
-						&nbsp;
-						<input type="date" id="dateEnd" class="form-control form-control-sm" style="width:150px;" required>
-					</div>
+				<div class="col col-md-2">
+					<label for="dateStart" class="m-b-0">Date Range from:</label>
+					<input type="date" id="dateStart" class="form-control form-control-sm m-b-10" style="width:150px;" required>
+					<label for="dateEnd" class="m-b-0">to:</label>
+					<input type="date" id="dateEnd" class="form-control form-control-sm m-b-10" style="width:150px;" required>
 				</div>
 				<div class="col col-md-2" style="vertical-align:bottom;">
 					<a id="btnDashboard" href="javascript:;" onclick="getReport('dashboard', null, 'resDetail');" class="btn btn-warning w m-b-10" title="Shows 'out of ordinary' events for all servers for the last 2 days">Dashboard</a>
 					<a id="btnWhySlow" href="javascript:;" onclick="getReportWithDates('issues', [viewModel.selectedServer().id], 'resDetail', 'Potential Issues: '+viewModel.selectedServer().name);" class="btn btn-warning w m-b-10" title="Shows 'out of ordinary' report for the selected Server">Why Slow?</a>
 					<a id="btnGetChart" href="javascript:;" onclick="getChart('resDetail', 'Metric Values');" class="btn btn-info w m-b-10" title="Plots chart for the selected Server and Metric">Get Chart</a>
+				</div>
+				<div class="col col-md-2" style="vertical-align:bottom;">
+					<a id="btnDataAvailablility" href="javascript:;" onclick="getReport('dataav', null, 'resDetail', 'Data Availability');" class="btn btn-secondary w m-b-10" title="Shows Data Availablility for last week for all servers.">Data Availablility</a>
 				</div>
 			</div>
 		</div>
@@ -99,7 +92,7 @@
 	<script>
 		$(document).ready(function(){
 			// load data
-			viewModel.dateRangeDays("0");
+			//viewModel.dateRangeDays("0");
 			resetDates(startDate=getDateString(new Date().addDays(-1)), endDate=getDateString(new Date().addDays(-1)));
 			getLookup("server", null, viewModel.lkpServers, viewModel.status);
 

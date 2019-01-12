@@ -15,7 +15,6 @@ class ReportHTMLDahsboardApiHandler(main.MainHandler):
         results = rpt.Reports.get_dashboard_card()
         self.add_header('Access-Control-Allow-Origin', '*')
         self.render("rpt_dashboard.html", items=results)
-        # self.write("<div>TESTING</div>")
         return
 
 
@@ -51,5 +50,22 @@ class ReportHTMLIssuesApiHandler(main.MainHandler):
 
         self.add_header('Access-Control-Allow-Origin', '*')
         self.render("rpt_issues.html", items=data)
-        # self.write("<div>TESTING</div>")
+        return
+
+
+class ReportDataAvApiHandler(main.MainHandler):
+    async def get(self):
+        results = rpt.Reports.get_dataav()
+        super().get_results_json(results)
+        return
+
+
+class ReportHTMLDataAvApiHandler(main.MainHandler):
+    async def get(self):
+        results = rpt.Reports.get_dataav()
+        #data = results.serialize_formatted()
+        #data = results.serialize() if results is not None else ""
+
+        self.add_header('Access-Control-Allow-Origin', '*')
+        self.render("rpt_dataav.html", model=results)
         return

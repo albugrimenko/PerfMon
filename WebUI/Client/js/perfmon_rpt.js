@@ -1,4 +1,4 @@
-function getReport(rptName, params, dest) {
+function getReport(rptName, params, dest, title='') {
 	var start = Date.now();
 	var url = baseURL + "/report/html/" + rptName;
 	if (params && params.length > 0) {
@@ -15,6 +15,8 @@ function getReport(rptName, params, dest) {
 			$('#' + dest).html('<p class="m-t text-center">...working...<br><img src="./img/ajax-loader.gif" alt="...working..." /></p>');			
 		},
 		success: function(data) {
+			if (title)
+				$('#' + dest).html('<center><h4>' + title + '</h4></center>' + data);
 			$('#' + dest).html(data);
 			if (viewModel != undefined) 
 				viewModel.status("Loading " + rptName + ": OK. (exec time: " + getExecTime(start) + " s)");
@@ -60,7 +62,8 @@ function getReportWithDates(rptName, params, dest, title='', startDate='', endDa
 			$('#' + dest).html('<p class="m-t text-center">...working...<br><img src="./img/ajax-loader.gif" alt="...working..." /></p>');			
 		},
 		success: function(data) {
-			$('#' + dest).html('<center><h4>' + title + '</h4></center>' + data);
+			if (title)
+				$('#' + dest).html('<center><h4>' + title + '</h4></center>' + data);
 			if (viewModel != undefined) 
 				viewModel.status("Loading " + rptName + ": OK. (exec time: " + getExecTime(start) + " s)");
 		},

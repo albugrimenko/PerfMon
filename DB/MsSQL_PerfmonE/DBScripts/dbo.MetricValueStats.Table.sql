@@ -26,11 +26,6 @@ CREATE TABLE [dbo].[MetricValueStats](
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [Stats]
 ) ON [Stats]
 GO
-ALTER TABLE [dbo].[MetricValueStats]  WITH CHECK ADD  CONSTRAINT [FKMetricValueStats_MetricSets] FOREIGN KEY([MetricSetID])
-REFERENCES [dbo].[MetricSets] ([ID])
-GO
-ALTER TABLE [dbo].[MetricValueStats] CHECK CONSTRAINT [FKMetricValueStats_MetricSets]
-GO
 ALTER TABLE [dbo].[MetricValueStats]  WITH CHECK ADD  CONSTRAINT [FK_MetricValueStats_MetricSets] FOREIGN KEY([MetricSetID])
 REFERENCES [dbo].[MetricSets] ([ID])
 GO

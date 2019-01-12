@@ -19,6 +19,8 @@ exec srv_ComputeStats @StartDate='5/1/2018', @EndDate='5/10/2018'
 
 AS
 set nocount on;
+set xact_abort on;
+set transaction isolation level snapshot;
 
 -- Valid @GrHours values: 0, 1, 2, 4, 6, 8, 12
 declare @GrHours tinyint = 0,
@@ -47,7 +49,7 @@ if @StartDate is null or @EndDate is null begin
 		select @StartDate = @sd, @EndDate=@ed
 end
 
-truncate table MetricValueStats
+truncate table stage.MetricValueStats
 
 while @GrHours <= 12 begin
 	print '-- Group by # hours: '  + cast(@GrHours as varchar(20))
@@ -70,7 +72,7 @@ while @GrHours <= 12 begin
 			join d on m.DayInYear = d.DayInYear	-- required for proper partitions usage
 				and m.DateID = d.ID 
 	)
-	insert into MetricValueStats (ServerID, MetricSetID, MetricID,
+	insert into stage.MetricValueStats (ServerID, MetricSetID, MetricID,
 		GrHours, GrNumber, DayInWeek, StartTimeID, EndTimeID, 
 		Value_Lo, Value_Hi, Value_Avg, Value_Std)
 	select 
@@ -101,6 +103,20 @@ while @GrHours <= 12 begin
 		set @GrHours += 2
 	else
 		set @GrHours += 4
+end
+
+-- copy data from stage
+if exists(select 1 from stage.MetricValueStats) begin
+	begin tran
+		truncate table MetricValueStats
+		insert into MetricValueStats (ServerID, MetricSetID, MetricID,
+			GrHours, GrNumber, DayInWeek, StartTimeID, EndTimeID, 
+			Value_Lo, Value_Hi, Value_Avg, Value_Std)
+		select ServerID, MetricSetID, MetricID,
+			GrHours, GrNumber, DayInWeek, StartTimeID, EndTimeID, 
+			Value_Lo, Value_Hi, Value_Avg, Value_Std
+		from stage.MetricValueStats
+	commit
 end
 
 print '--- DONE ---'

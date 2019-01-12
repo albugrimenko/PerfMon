@@ -1047,6 +1047,8 @@ exec srv_ComputeStats @StartDate='5/1/2018', @EndDate='5/10/2018'
 
 AS
 set nocount on;
+set xact_abort on;
+set transaction isolation level snapshot;
 
 -- Valid @GrHours values: 0, 1, 2, 4, 6, 8, 12
 declare @GrHours tinyint = 0,
@@ -1075,7 +1077,7 @@ if @StartDate is null or @EndDate is null begin
 		select @StartDate = @sd, @EndDate=@ed
 end
 
-truncate table MetricValueStats
+truncate table stage.MetricValueStats
 
 while @GrHours <= 12 begin
 	print '-- Group by # hours: '  + cast(@GrHours as varchar(20))
@@ -1098,7 +1100,7 @@ while @GrHours <= 12 begin
 			join d on m.DayInYear = d.DayInYear	-- required for proper partitions usage
 				and m.DateID = d.ID 
 	)
-	insert into MetricValueStats (ServerID, MetricSetID, MetricID,
+	insert into stage.MetricValueStats (ServerID, MetricSetID, MetricID,
 		GrHours, GrNumber, DayInWeek, StartTimeID, EndTimeID, 
 		Value_Lo, Value_Hi, Value_Avg, Value_Std)
 	select 
@@ -1131,9 +1133,24 @@ while @GrHours <= 12 begin
 		set @GrHours += 4
 end
 
+-- copy data from stage
+if exists(select 1 from stage.MetricValueStats) begin
+	begin tran
+		truncate table MetricValueStats
+		insert into MetricValueStats (ServerID, MetricSetID, MetricID,
+			GrHours, GrNumber, DayInWeek, StartTimeID, EndTimeID, 
+			Value_Lo, Value_Hi, Value_Avg, Value_Std)
+		select ServerID, MetricSetID, MetricID,
+			GrHours, GrNumber, DayInWeek, StartTimeID, EndTimeID, 
+			Value_Lo, Value_Hi, Value_Avg, Value_Std
+		from stage.MetricValueStats
+	commit
+end
+
 print '--- DONE ---'
 
 RETURN 1
+GO
 GO
 CREATE PROCEDURE [dbo].[tools_SetUpDimentions]
 	@StartDate date = null,
@@ -1507,9 +1524,86 @@ BEGIN CATCH
 END CATCH
 
 RETURN 1
-
 GO
 GRANT EXECUTE ON [stage].[Perfmon_Import] TO [importer] AS [dbo]
 GO
+CREATE PROCEDURE dbo.GetRpt_DataAvailability
+	@TopDays int = 7
+
+--
+-- Gets total number of recorded metric values for each server for the last @TopDays.
+--
+
+AS
+set nocount on;
+
+declare @d date = getdate();
+
+; with d as (
+	select top (@TopDays)
+		ID, TheDate
+	from Dates (nolock)
+	where TheDate <= @d
+	order by TheDate desc
+),
+mv as (
+	select ServerID, DateID, Count=count(*)
+	from MetricValues mv (nolock)
+		join d on mv.DateID = d.ID
+	group by ServerID, DateID
+)
+select d.ID, d.TheDate,
+	ServerID = s.ID, ServerName=s.Name, 
+	Count = isnull(mv.Count,0)
+into #t
+from d
+	join mv on d.ID = mv.DateID
+	join Servers s (nolock) on mv.ServerID = s.ID
+order by s.Name, d.ID desc
+;
+
+-- add zero days
+; with d as (
+	select top (@TopDays)
+		ID, TheDate
+	from Dates (nolock)
+	where TheDate <= @d
+	order by TheDate desc
+)
+insert into #t (ID, TheDate, ServerID, ServerName, Count)
+select d.ID, d.TheDate, sn.ServerID, sn.ServerName, Count=0
+from d
+	cross join (select distinct ServerID, ServerName from #t) sn
+	left join #t t on d.ID = t.ID and sn.ServerID = t.ServerID
+where t.ID is null;
+
+--results
+declare @cols nvarchar(max), @sql nvarchar(max)
+select @cols = isnull(@cols + ',[', '[') + ServerName + ']' from (
+	select distinct ServerName from #t
+) a
+order by ServerName
+--select @cols
+
+set @sql = N'
+	select * 
+	from (
+		select TheDate, ServerName, Count
+		from #t
+	) a
+	PIVOT (
+		sum(Count) for ServerName in (' + @cols + ')
+	) b
+	order by TheDate desc;
+'
+exec sp_executesql @sql;
+
+drop table #t
+
+RETURN 1
+GO
+GRANT EXECUTE ON [dbo].[GetRpt_DataAvailability] TO [reporter] AS [dbo]
+GO
+
 print '--- Functions and stored procs: done. ---'
 GO
